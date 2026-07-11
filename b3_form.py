@@ -41,6 +41,20 @@ def load_spreadsheet_data():
 
 def main():
     st.set_page_config(page_title="研究室マッチング", layout="wide")
+    
+    # チェックボックスを少し大きくするスタイル設定
+    st.markdown("""
+    <style>
+    div[data-testid="stCheckbox"] input[type="checkbox"] {
+        transform: scale(1.3);
+    }
+    div[data-testid="stCheckbox"] label {
+        font-size: 1.05em;
+        margin-left: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.title("研究室マッチングシステム")
     st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．")
 
@@ -79,22 +93,30 @@ def main():
 
     st.write("") 
 
+    # カテゴリごとにキーワードを整理して表示
     st.write("■ 気になるキーワードを選択（複数可）")
     
     if not target_df.empty:
-        all_keywords = set()
+        # カテゴリごとにキーワードを辞書に格納
+        grouped_keywords = {}
         for kw_list in target_df["キーワードデータ"]:
             if isinstance(kw_list, list):
                 for kw_tuple in kw_list:
-                    if len(kw_tuple) >= 1:
-                        all_keywords.add(kw_tuple[0])
-        all_keywords = sorted(list(all_keywords))
+                    if len(kw_tuple) >= 2:
+                        kw, cat = kw_tuple[0], kw_tuple[1]
+                        if cat not in grouped_keywords:
+                            grouped_keywords[cat] = set()
+                        grouped_keywords[cat].add(kw)
 
-        cols = st.columns(4)
         selected_themes = []
-        for i, theme in enumerate(all_keywords):
-            if cols[i % 4].checkbox(theme, key=theme):
-                selected_themes.append(theme)
+        # カテゴリごとに表示
+        for category, keywords in grouped_keywords.items():
+            st.write(f"▼ 【{category}】")
+            cols = st.columns(4)
+            for i, kw in enumerate(sorted(list(keywords))):
+                if cols[i % 4].checkbox(kw, key=f"b3_{kw}"):
+                    selected_themes.append(kw)
+            st.write("")
     else:
         st.write("※上の選択欄で分野を選ぶと，該当する研究室のキーワードが表示されます．")
         selected_themes = []
@@ -122,7 +144,6 @@ def main():
         result_df["Match_Score"] = scores
         result_df = result_df.sort_values(by="Match_Score", ascending=False)
 
-        # グラフの描画（Streamlit標準の安全な機能を使用）
         st.write("### Matching Score Distribution")
         chart_data = result_df[["Lab_ID", "Match_Score"]].set_index("Lab_ID")
         st.bar_chart(chart_data)
