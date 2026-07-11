@@ -33,6 +33,19 @@ def save_data(data_dict):
     sheet.append_row(row_values)
 
 def main():
+    # CSSでチェックボックスを拡大
+    st.markdown("""
+    <style>
+    div[data-testid="stCheckbox"] input[type="checkbox"] {
+        transform: scale(1.5);
+    }
+    div[data-testid="stCheckbox"] label {
+        font-size: 1.1em;
+        margin-left: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.set_page_config(page_title="【B4向け】研究室情報登録フォーム", layout="wide")
     st.title("研究室情報 登録フォーム")
     st.write("B3向けマッチングシステム用：キーワードと分野を紐付けて登録してください．")
@@ -57,12 +70,12 @@ def main():
 
     selected_kw_pairs = []
 
-    # 定型キーワードの選択
+    # 定型キーワード（3列表示に変更）
     for category, keywords in categorized_keywords.items():
         st.write(f"▼ 【{category}】")
-        cols = st.columns(4)
+        cols = st.columns(3)
         for i, kw in enumerate(keywords):
-            if cols[i % 4].checkbox(kw, key=f"kw_{kw}"):
+            if cols[i % 3].checkbox(kw, key=f"kw_{kw}"):
                 selected_kw_pairs.append((kw, category))
         st.write("")
 
@@ -71,10 +84,9 @@ def main():
 
     # カスタムキーワード用のリスト管理
     if "custom_kw_ids" not in st.session_state:
-        st.session_state.custom_kw_ids = [0]  # 行IDのリスト
-        st.session_state.next_kw_id = 1       # 次に使うID
+        st.session_state.custom_kw_ids = [0]
+        st.session_state.next_kw_id = 1
 
-    # 削除ボタンが押された時の処理関数
     def remove_row(row_id):
         st.session_state.custom_kw_ids.remove(row_id)
 
@@ -86,12 +98,11 @@ def main():
         with col_c2:
             cat_select = st.selectbox(f"所属分野", CATEGORY_LIST, key=f"custom_cat_{row_id}")
         with col_c3:
-            st.write("##") # 位置調整
+            st.write("##")
             if st.button("－", key=f"del_{row_id}"):
                 remove_row(row_id)
                 st.rerun()
         
-        # 値が入力されていればリストに追加
         if kw_text.strip():
             selected_kw_pairs.append((kw_text.strip(), cat_select))
 
