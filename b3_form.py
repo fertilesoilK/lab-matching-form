@@ -1,50 +1,60 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
-import glob
 import ast
+import json
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-def load_all_csv_data():
-    # アプリと同じフォルダにあるすべてのCSVファイルを読み込みます．
-    csv_files = glob.glob("*.csv")
-    
-    if not csv_files:
-        return pd.DataFrame()
+def load_spreadsheet_data():
+    try:
+        # secrets.toml から情報を読み込む
+        sheet_id = st.secrets["sheet_id"]
+        creds_dict = json.loads(st.secrets["gcp_service_account"])
         
-    all_dataframes = []
-    
-    for file in csv_files:
-        try:
-            df = pd.read_csv(file)
+        # Googleへの接続
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        
+        # シートを開いてすべての値を取得
+        sheet = client.open_by_key(sheet_id).sheet1
+        records = sheet.get_all_values()
+        
+        if not records:
+            return pd.DataFrame()
             
-            # リスト形式のデータを文字列からPythonのリストに変換します．
-            for col in ["分野", "大キーワード", "中キーワード", "小キーワード"]:
-                if col in df.columns:
-                    df[col] = df[col].apply(lambda x: ast.literal_eval(x) if pd.notna(x) and isinstance(x, str) and x.startswith('[') else [])
-            
-            all_dataframes.append(df)
-            
-        except Exception as e:
-            st.error(f"ファイル {file} の読み込み中にエラーが発生しました: {e}")
-            
-    if all_dataframes:
-        # すべてのCSVを縦に結合します．
-        combined_df = pd.concat(all_dataframes, ignore_index=True)
-        return combined_df
-    else:
+        # 画像の通りヘッダーがないデータ構造を想定し，列名を付与
+        df = pd.DataFrame(records, columns=["Lab_ID", "研究室名", "分野", "キーワードデータ"])
+        
+        # 文字列として保存されているリストをPythonのリストに変換
+        def safe_eval(val):
+            try:
+                if isinstance(val, str) and val.startswith('['):
+                    return ast.literal_eval(val)
+                return []
+            except:
+                return []
+
+        df["分野"] = df["分野"].apply(safe_eval)
+        df["キーワードデータ"] = df["キーワードデータ"].apply(safe_eval)
+        
+        return df
+    except Exception as e:
+        st.error(f"スプレッドシートの読み込み中にエラーが発生しました: {e}")
         return pd.DataFrame()
+
 
 def main():
     st.set_page_config(page_title="研究室マッチング", layout="wide")
     st.title("研究室マッチングシステム")
     st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．")
 
-    # CSVからデータを読み込みます．
-    df = load_all_csv_data()
+    # スプレッドシートからデータを読み込みます．
+    df = load_spreadsheet_data()
 
     if df.empty:
-        st.warning("研究室のデータ（CSVファイル）が見つかりません．アプリと同じフォルダにCSVファイルを配置してください．")
+        st.warning("研究室のデータが見つかりません．スプレッドシートにデータが登録されているか確認してください．")
         return
 
     st.markdown("---") 
@@ -82,11 +92,12 @@ def main():
     
     if not target_df.empty:
         all_keywords = set()
-        for col in ["大キーワード", "中キーワード", "小キーワード"]:
-            if col in target_df.columns:
-                for themes in target_df[col]:
-                    if isinstance(themes, list):
-                        all_keywords.update(themes)
+        # キーワードデータは (キーワード, カテゴリ) のタプルになっているため，キーワードのみを抽出
+        for kw_list in target_df["キーワードデータ"]:
+            if isinstance(kw_list, list):
+                for kw_tuple in kw_list:
+                    if len(kw_tuple) >= 1:
+                        all_keywords.add(kw_tuple[0])
         all_keywords = sorted(list(all_keywords))
 
         cols = st.columns(4)
@@ -107,18 +118,17 @@ def main():
         scores = []
         for index, row in target_df.iterrows():
             score = 0
-            
             b3_themes = set(selected_themes)
             
-            lab_large = set(row["大キーワード"]) if "大キーワード" in row and isinstance(row["大キーワード"], list) else set()
-            lab_medium = set(row["中キーワード"]) if "中キーワード" in row and isinstance(row["中キーワード"], list) else set()
-            lab_small = set(row["小キーワード"]) if "小キーワード" in row and isinstance(row["小キーワード"], list) else set()
+            # 各研究室が持つキーワードの集合を作成
+            lab_kws = set()
+            if isinstance(row["キーワードデータ"], list):
+                for kw_tuple in row["キーワードデータ"]:
+                    if len(kw_tuple) >= 1:
+                        lab_kws.add(kw_tuple[0])
             
-            # キーワードの一致によるスコア計算
-            score += len(b3_themes.intersection(lab_large)) * 15
-            score += len(b3_themes.intersection(lab_medium)) * 10
-            score += len(b3_themes.intersection(lab_small)) * 5
-                
+            # キーワードの一致数 × 10点でスコアを計算
+            score += len(b3_themes.intersection(lab_kws)) * 10
             scores.append(score)
             
         result_df = target_df.copy()
@@ -138,19 +148,16 @@ def main():
         # おすすめの研究室を詳細表示
         st.write("### おすすめの研究室詳細")
         for index, row in result_df.iterrows():
+            # スコアが0より大きい，またはキーワードが1つも選択されていない場合のみ表示
             if row["Match_Score"] > 0 or len(selected_themes) == 0:
-                with st.expander(f"【{row['研究室名']}】 スコア: {row['Match_Score']}点"):
+                with st.expander(f"【{row['研究室名']}】 Score: {row['Match_Score']}"):
                     fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
                     st.write(f"【分野】 {fields_str}")
                     
-                    large_str = "，".join(row['大キーワード']) if isinstance(row['大キーワード'], list) else ""
-                    st.write(f"【大キーワード】 {large_str}")
-                    
-                    medium_str = "，".join(row['中キーワード']) if isinstance(row['中キーワード'], list) else ""
-                    st.write(f"【中キーワード】 {medium_str}")
-                    
-                    small_str = "，".join(row['小キーワード']) if isinstance(row['小キーワード'], list) else ""
-                    st.write(f"【小キーワード】 {small_str}")
+                    # 登録されている全キーワードをコンマ区切りで表示
+                    kw_list = [kw[0] for kw in row['キーワードデータ']] if isinstance(row['キーワードデータ'], list) else []
+                    kw_str = "，".join(kw_list)
+                    st.write(f"【関連キーワード】 {kw_str}")
 
 if __name__ == "__main__":
     main()
