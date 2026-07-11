@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import altair as alt
 import ast
 import json
 import gspread
@@ -137,13 +137,15 @@ def main():
 
         # グラフの描画（タイトル，ラベルなどはすべて英語）
         st.write("### Matching Score Distribution")
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.bar(result_df["Lab_ID"], result_df["Match_Score"], color="skyblue")
-        ax.set_title("Matching Score by Laboratory", fontsize=14)
-        ax.set_xlabel("Laboratory", fontsize=12)
-        ax.set_ylabel("Score", fontsize=12)
-        plt.xticks(rotation=45) 
-        st.pyplot(fig)
+        
+        chart = alt.Chart(result_df).mark_bar(color="skyblue").encode(
+            x=alt.X("Lab_ID:N", title="Laboratory", sort=None),
+            y=alt.Y("Match_Score:Q", title="Score")
+        ).properties(
+            title="Matching Score by Laboratory",
+            height=400
+        )
+        st.altair_chart(chart, use_container_width=True)
 
         # おすすめの研究室を詳細表示
         st.write("### おすすめの研究室詳細")
