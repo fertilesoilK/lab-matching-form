@@ -38,11 +38,19 @@ def load_spreadsheet_data():
         st.error(f"スプレッドシートの読み込み中にエラーが発生しました: {e}")
         return pd.DataFrame()
 
+def display_lab_details(row):
+    """研究室の詳細を表示する共通関数"""
+    with st.expander(f"【{row['研究室名']}】 Score: {row['Match_Score']}"):
+        fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
+        st.write(f"【分野】 {fields_str}")
+        
+        kw_list = [kw[0] for kw in row['キーワードデータ']] if isinstance(row['キーワードデータ'], list) else []
+        kw_str = "，".join(kw_list)
+        st.write(f"【関連キーワード】 {kw_str}")
 
 def main():
     st.set_page_config(page_title="研究室マッチング", layout="wide")
     
-    # チェックボックスを少し大きくするスタイル設定
     st.markdown("""
     <style>
     div[data-testid="stCheckbox"] input[type="checkbox"] {
@@ -93,11 +101,9 @@ def main():
 
     st.write("") 
 
-    # カテゴリごとにキーワードを整理して表示
     st.write("■ 気になるキーワードを選択（複数可）")
     
     if not target_df.empty:
-        # カテゴリごとにキーワードを辞書に格納
         grouped_keywords = {}
         for kw_list in target_df["キーワードデータ"]:
             if isinstance(kw_list, list):
@@ -109,12 +115,11 @@ def main():
                         grouped_keywords[cat].add(kw)
 
         selected_themes = []
-        # カテゴリごとに表示
         for category, keywords in grouped_keywords.items():
             st.write(f"▼ 【{category}】")
-            cols = st.columns(4)
+            cols = st.columns(3)
             for i, kw in enumerate(sorted(list(keywords))):
-                if cols[i % 4].checkbox(kw, key=f"b3_{kw}"):
+                if cols[i % 3].checkbox(kw, key=f"b3_{kw}"):
                     selected_themes.append(kw)
             st.write("")
     else:
@@ -124,8 +129,6 @@ def main():
     st.markdown("---") 
 
     if st.button("診断する", type="primary", disabled=target_df.empty): 
-        st.subheader("診断結果")
-
         scores = []
         for index, row in target_df.iterrows():
             score = 0
@@ -144,20 +147,30 @@ def main():
         result_df["Match_Score"] = scores
         result_df = result_df.sort_values(by="Match_Score", ascending=False)
 
-        st.write("### Matching Score Distribution")
-        chart_data = result_df[["Lab_ID", "Match_Score"]].set_index("Lab_ID")
-        st.bar_chart(chart_data)
-
-        st.write("### おすすめの研究室詳細")
-        for index, row in result_df.iterrows():
-            if row["Match_Score"] > 0 or len(selected_themes) == 0:
-                with st.expander(f"【{row['研究室名']}】 Score: {row['Match_Score']}"):
-                    fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
-                    st.write(f"【分野】 {fields_str}")
-                    
-                    kw_list = [kw[0] for kw in row['キーワードデータ']] if isinstance(row['キーワードデータ'], list) else []
-                    kw_str = "，".join(kw_list)
-                    st.write(f"【関連キーワード】 {kw_str}")
+        # 診断結果の表示
+        st.subheader("診断結果")
+        
+        # キーワード未選択時はすべておすすめとして表示
+        if len(selected_themes) == 0:
+            for index, row in result_df.iterrows():
+                display_lab_details(row)
+        else:
+            # おすすめ（スコア > 0）
+            recommended_df = result_df[result_df["Match_Score"] > 0]
+            st.write("### おすすめの研究室")
+            if recommended_df.empty:
+                st.info("条件に一致する研究室はありませんでした．")
+            else:
+                for index, row in recommended_df.iterrows():
+                    display_lab_details(row)
+            
+            # その他（スコア == 0）
+            others_df = result_df[result_df["Match_Score"] == 0]
+            if not others_df.empty:
+                st.markdown("---")
+                st.write("### その他の研究室")
+                for index, row in others_df.iterrows():
+                    display_lab_details(row)
 
 if __name__ == "__main__":
     main()
