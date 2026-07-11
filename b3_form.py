@@ -48,7 +48,7 @@ def display_lab_details(row):
         if isinstance(kw_data, list):
             grouped = {}
             for kw, cat in kw_data:
-                # カテゴリを統一
+                # データのカテゴリを統一
                 cat = "その他・環境・設備" if cat in ["実験・設備・その他ツール", "その他・環境・設備"] else cat
                 if cat not in grouped:
                     grouped[cat] = []
@@ -79,7 +79,6 @@ def main():
     st.markdown("---") 
     st.header("希望条件を入力してください")
     
-    # 診断対象選択など
     target_mode = st.radio("研究室をどの範囲から探しますか？", ["全ての研究室から診断する", "分野を絞って診断する"], label_visibility="collapsed")
     all_fields_set = set()
     for fields_list in df["分野"]:
@@ -102,7 +101,7 @@ def main():
                 for kw_tuple in kw_list:
                     if len(kw_tuple) >= 2:
                         kw, cat = kw_tuple[0], kw_tuple[1]
-                        # ここでカテゴリを統合
+                        # データを統一
                         if cat in ["実験・設備・その他ツール", "その他・環境・設備"]:
                             cat = "その他・環境・設備"
                         
@@ -121,6 +120,7 @@ def main():
             st.write(f"▼ 【{category}】")
             cols = st.columns(3)
             for i, kw in enumerate(sorted(list(keywords))):
+                # ★ここが重要：categoryを含めることで重複を防ぐ
                 if cols[i % 3].checkbox(kw, key=f"b3_{category}_{kw}"):
                     selected_themes.append(kw)
             st.write("")
@@ -129,4 +129,45 @@ def main():
         selected_themes = []
 
     st.markdown("---") 
-    # (以下、診断処理部分は変更なしのため省略。上書きする際は元のコードを全て貼り付けてください)
+
+    if st.button("診断する", type="primary", disabled=target_df.empty): 
+        scores = []
+        for index, row in target_df.iterrows():
+            score = 0
+            b3_themes = set(selected_themes)
+            
+            lab_kws = set()
+            if isinstance(row["キーワードデータ"], list):
+                for kw_tuple in row["キーワードデータ"]:
+                    if len(kw_tuple) >= 1:
+                        lab_kws.add(kw_tuple[0])
+            
+            score += len(b3_themes.intersection(lab_kws)) * 10
+            scores.append(score)
+            
+        result_df = target_df.copy()
+        result_df["Match_Score"] = scores
+        result_df = result_df.sort_values(by="Match_Score", ascending=False)
+
+        st.subheader("診断結果")
+        if len(selected_themes) == 0:
+            for index, row in result_df.iterrows():
+                display_lab_details(row)
+        else:
+            recommended_df = result_df[result_df["Match_Score"] > 0]
+            st.write("### おすすめの研究室")
+            if recommended_df.empty:
+                st.info("条件に一致する研究室はありませんでした．")
+            else:
+                for index, row in recommended_df.iterrows():
+                    display_lab_details(row)
+            
+            others_df = result_df[result_df["Match_Score"] == 0]
+            if not others_df.empty:
+                st.markdown("---")
+                st.write("### その他の研究室")
+                for index, row in others_df.iterrows():
+                    display_lab_details(row)
+
+if __name__ == "__main__":
+    main()
