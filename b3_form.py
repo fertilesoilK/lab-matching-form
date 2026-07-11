@@ -39,14 +39,23 @@ def load_spreadsheet_data():
         return pd.DataFrame()
 
 def display_lab_details(row):
-    """研究室の詳細を表示する共通関数"""
+    """研究室の詳細を表示する共通関数（カテゴリごとの表示に対応）"""
     with st.expander(f"【{row['研究室名']}】 Score: {row['Match_Score']}"):
         fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
         st.write(f"【分野】 {fields_str}")
         
-        kw_list = [kw[0] for kw in row['キーワードデータ']] if isinstance(row['キーワードデータ'], list) else []
-        kw_str = "，".join(kw_list)
-        st.write(f"【関連キーワード】 {kw_str}")
+        # キーワードをカテゴリごとにグループ化
+        kw_data = row['キーワードデータ']
+        if isinstance(kw_data, list):
+            grouped = {}
+            for kw, cat in kw_data:
+                if cat not in grouped:
+                    grouped[cat] = []
+                grouped[cat].append(kw)
+            
+            st.write("【関連キーワード】")
+            for cat, kws in grouped.items():
+                st.write(f"・**{cat}**: {', '.join(kws)}")
 
 def main():
     st.set_page_config(page_title="研究室マッチング", layout="wide")
@@ -64,7 +73,7 @@ def main():
     """, unsafe_allow_html=True)
 
     st.title("研究室マッチングシステム")
-    st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．")
+    st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．非公式なサイトのため，情報をうのみにしないようにしましょう．詳細は各研究室に訪問することをおすすめします．")
 
     df = load_spreadsheet_data()
 
@@ -147,15 +156,13 @@ def main():
         result_df["Match_Score"] = scores
         result_df = result_df.sort_values(by="Match_Score", ascending=False)
 
-        # 診断結果の表示
         st.subheader("診断結果")
         
-        # キーワード未選択時はすべておすすめとして表示
+        # おすすめとその他の振り分け表示
         if len(selected_themes) == 0:
             for index, row in result_df.iterrows():
                 display_lab_details(row)
         else:
-            # おすすめ（スコア > 0）
             recommended_df = result_df[result_df["Match_Score"] > 0]
             st.write("### おすすめの研究室")
             if recommended_df.empty:
@@ -164,7 +171,6 @@ def main():
                 for index, row in recommended_df.iterrows():
                     display_lab_details(row)
             
-            # その他（スコア == 0）
             others_df = result_df[result_df["Match_Score"] == 0]
             if not others_df.empty:
                 st.markdown("---")
