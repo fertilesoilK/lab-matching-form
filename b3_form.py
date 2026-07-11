@@ -60,6 +60,7 @@ def display_lab_details(row):
 def main():
     st.set_page_config(page_title="研究室マッチング", layout="wide")
     
+    # チェックボックスを少し大きくするスタイル設定
     st.markdown("""
     <style>
     div[data-testid="stCheckbox"] input[type="checkbox"] {
@@ -110,9 +111,11 @@ def main():
 
     st.write("") 
 
+    # カテゴリごとにキーワードを整理して表示
     st.write("■ 気になるキーワードを選択（複数可）")
     
     if not target_df.empty:
+        # カテゴリごとにキーワードを辞書に格納
         grouped_keywords = {}
         for kw_list in target_df["キーワードデータ"]:
             if isinstance(kw_list, list):
@@ -124,11 +127,13 @@ def main():
                         grouped_keywords[cat].add(kw)
 
         selected_themes = []
+        # カテゴリごとに表示
         for category, keywords in grouped_keywords.items():
             st.write(f"▼ 【{category}】")
             cols = st.columns(3)
             for i, kw in enumerate(sorted(list(keywords))):
-                if cols[i % 3].checkbox(kw, key=f"b3_{kw}"):
+                # ★重複エラーを防ぐため，カテゴリ名を含めたユニークなキーを設定
+                if cols[i % 3].checkbox(kw, key=f"b3_{category}_{kw}"):
                     selected_themes.append(kw)
             st.write("")
     else:
