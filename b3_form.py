@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import altair as alt
 import ast
 import json
 import gspread
@@ -8,26 +7,21 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 def load_spreadsheet_data():
     try:
-        # secrets.toml から情報を読み込む
         sheet_id = st.secrets["sheet_id"]
         creds_dict = json.loads(st.secrets["gcp_service_account"])
         
-        # Googleへの接続
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
         
-        # シートを開いてすべての値を取得
         sheet = client.open_by_key(sheet_id).sheet1
         records = sheet.get_all_values()
         
         if not records:
             return pd.DataFrame()
             
-        # 画像の通りヘッダーがないデータ構造を想定し，列名を付与
         df = pd.DataFrame(records, columns=["Lab_ID", "研究室名", "分野", "キーワードデータ"])
         
-        # 文字列として保存されているリストをPythonのリストに変換
         def safe_eval(val):
             try:
                 if isinstance(val, str) and val.startswith('['):
@@ -50,7 +44,6 @@ def main():
     st.title("研究室マッチングシステム")
     st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．")
 
-    # スプレッドシートからデータを読み込みます．
     df = load_spreadsheet_data()
 
     if df.empty:
@@ -61,7 +54,6 @@ def main():
 
     st.header("希望条件を入力してください")
     
-    # １．診断対象（絞り込み）の選択
     st.write("■ 診断の対象")
     target_mode = st.radio(
         "研究室をどの範囲から探しますか？", 
@@ -87,12 +79,10 @@ def main():
 
     st.write("") 
 
-    # ２．キーワードの選択
     st.write("■ 気になるキーワードを選択（複数可）")
     
     if not target_df.empty:
         all_keywords = set()
-        # キーワードデータは (キーワード, カテゴリ) のタプルになっているため，キーワードのみを抽出
         for kw_list in target_df["キーワードデータ"]:
             if isinstance(kw_list, list):
                 for kw_tuple in kw_list:
@@ -111,7 +101,6 @@ def main():
 
     st.markdown("---") 
 
-    # 診断ボタン
     if st.button("診断する", type="primary", disabled=target_df.empty): 
         st.subheader("診断結果")
 
@@ -120,14 +109,12 @@ def main():
             score = 0
             b3_themes = set(selected_themes)
             
-            # 各研究室が持つキーワードの集合を作成
             lab_kws = set()
             if isinstance(row["キーワードデータ"], list):
                 for kw_tuple in row["キーワードデータ"]:
                     if len(kw_tuple) >= 1:
                         lab_kws.add(kw_tuple[0])
             
-            # キーワードの一致数 × 10点でスコアを計算
             score += len(b3_themes.intersection(lab_kws)) * 10
             scores.append(score)
             
@@ -135,28 +122,18 @@ def main():
         result_df["Match_Score"] = scores
         result_df = result_df.sort_values(by="Match_Score", ascending=False)
 
-        # グラフの描画（タイトル，ラベルなどはすべて英語）
+        # グラフの描画（Streamlit標準の安全な機能を使用）
         st.write("### Matching Score Distribution")
-        
-        chart = alt.Chart(result_df).mark_bar(color="skyblue").encode(
-            x=alt.X("Lab_ID:N", title="Laboratory", sort=None),
-            y=alt.Y("Match_Score:Q", title="Score")
-        ).properties(
-            title="Matching Score by Laboratory",
-            height=400
-        )
-        st.altair_chart(chart, use_container_width=True)
+        chart_data = result_df[["Lab_ID", "Match_Score"]].set_index("Lab_ID")
+        st.bar_chart(chart_data)
 
-        # おすすめの研究室を詳細表示
         st.write("### おすすめの研究室詳細")
         for index, row in result_df.iterrows():
-            # スコアが0より大きい，またはキーワードが1つも選択されていない場合のみ表示
             if row["Match_Score"] > 0 or len(selected_themes) == 0:
                 with st.expander(f"【{row['研究室名']}】 Score: {row['Match_Score']}"):
                     fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
                     st.write(f"【分野】 {fields_str}")
                     
-                    # 登録されている全キーワードをコンマ区切りで表示
                     kw_list = [kw[0] for kw in row['キーワードデータ']] if isinstance(row['キーワードデータ'], list) else []
                     kw_str = "，".join(kw_list)
                     st.write(f"【関連キーワード】 {kw_str}")
