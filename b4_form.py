@@ -28,7 +28,7 @@ def save_data(data_dict):
     client = gspread.authorize(creds)
     
     sheet = client.open_by_key(sheet_id).sheet1
-    # URLを含めた7列のデータを保存
+    # URL・カルチャー評価を含めた13列のデータを保存
     row_values = [
         data_dict["Lab_ID"],
         data_dict["研究室名"],
@@ -36,21 +36,21 @@ def save_data(data_dict):
         data_dict["キーワードデータ"],
         data_dict.get("公式HP", ""),
         data_dict.get("関連URL1", ""),
-        data_dict.get("関連URL2", "")
+        data_dict.get("関連URL2", ""),
+        data_dict.get("Q1", ""),
+        data_dict.get("Q2", ""),
+        data_dict.get("Q3", ""),
+        data_dict.get("Q4", ""),
+        data_dict.get("Q5", ""),
+        data_dict.get("Q6", "")
     ]
     sheet.append_row(row_values)
 
 def main():
-    # CSSでチェックボックスを拡大
     st.markdown("""
     <style>
-    div[data-testid="stCheckbox"] input[type="checkbox"] {
-        transform: scale(1.5);
-    }
-    div[data-testid="stCheckbox"] label {
-        font-size: 1.1em;
-        margin-left: 8px;
-    }
+    div[data-testid="stCheckbox"] input[type="checkbox"] { transform: scale(1.5); }
+    div[data-testid="stCheckbox"] label { font-size: 1.1em; margin-left: 8px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -93,7 +93,7 @@ def main():
         "CFD解析", "数値解析", "画像解析", "MATLAB", "プログラミング", "フーリエ解析", 
         "人工知能", "機械学習", "有限要素法", "サンプリングモアレ法", "強化学習", 
         "CAE", "IGA", "FPM", "重合メッシュ法", "プログラム実装", "fortran", "c言語", 
-        "python", "テン পরিচয়解析", "領域積分法", "Simulink", "統計","marc"
+        "python", "テンソル解析", "領域積分法", "Simulink", "統計","marc"
     ],
     "バイオ・環境・極限環境": [
         "生体機械", "バイオメカニクス", "脳波", "介護支援", "内視鏡", "生命維持", 
@@ -108,7 +108,6 @@ def main():
 
     selected_kw_pairs = []
 
-    # 定型キーワード
     for category, keywords in categorized_keywords.items():
         st.write(f"▼ 【{category}】")
         cols = st.columns(3)
@@ -148,8 +147,20 @@ def main():
         st.rerun()
 
     st.markdown("---")
+
+    st.header("3. 研究室のカルチャー・雰囲気（5段階評価）")
+    st.write("配属後のミスマッチを防ぐため，研究室のスタイルに最も近いものを直感で選んでください．")
     
-    st.header("3. 研究室の関連URLの登録（任意）")
+    q1 = st.slider("■ 実験か解析か（1: 実験メイン ⇔ 5: 解析・シミュレーションメイン）", 1, 5, 3)
+    q2 = st.slider("■ スケジュール・拘束度（1: 学生の自主性に任せられる ⇔ 5: 研究室側によるスケジュール管理が手厚い）", 1, 5, 3)
+    q3 = st.slider("■ サポート体制（1: 教授・スタッフ陣の手厚い指導 ⇔ 5: 先輩を中心とした学生間のサポート）", 1, 5, 3)
+    q4 = st.slider("■ 研究アプローチ（1: 基礎原理の解明・理学寄り ⇔ 5: 社会実装・モノづくり・工学寄り）", 1, 5, 3)
+    q5 = st.slider("■ 研究室の雰囲気（1: 和気あいあい・カジュアル ⇔ 5: 規律や礼儀を重んじる・フォーマル）", 1, 5, 3)
+    q6 = st.slider("■ 研究の進め方（1: 個人作業が中心 ⇔ 5: チームでの共同作業が中心）", 1, 5, 3)
+
+    st.markdown("---")
+    
+    st.header("4. 研究室の関連URLの登録（任意）")
     st.write("B3向けに案内したい研究室の公式HPや，関連するURLを入力してください．")
     official_url = st.text_input("■ 公式HPのURL（任意）")
     related_url_1 = st.text_input("■ 関連URL 1（任意）")
@@ -171,7 +182,8 @@ def main():
                 "キーワードデータ": str(final_kw_data),
                 "公式HP": official_url.strip(),
                 "関連URL1": related_url_1.strip(),
-                "関連URL2": related_url_2.strip()
+                "関連URL2": related_url_2.strip(),
+                "Q1": q1, "Q2": q2, "Q3": q3, "Q4": q4, "Q5": q5, "Q6": q6
             }
             save_data(data_to_save)
             st.success(f"「{lab_name}」のデータを登録しました！")
