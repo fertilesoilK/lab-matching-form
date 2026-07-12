@@ -5,6 +5,22 @@ import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+# 研究室のURLリスト（「"リンクの表示名": "URL"」の形式でカンマ区切りで複数追加できます）
+LAB_URLS = {
+    "上野研究室": {"公式HP": "https://www.rs.tus.ac.jp/ueno_lab/index.html", "関連URL": "https://dept.tus.ac.jp/st/souiki-journal/6754/"},
+    "塚原研究室": {"公式HP": "https://www.rs.tus.ac.jp/~t2lab/index-j.html", "関連URL": "https://www.jsme-fed.org/laboratories/2023_12/001.html"},
+    "青野研究室": {"公式HP": "https://sites.google.com/view/hikaruaono/home"},
+    "田口研究室": {"公式HP": ""},
+    "高橋研究室": {"公式HP": "https://www.rs.tus.ac.jp/takahashi_lab/", "関連URL": "https://dept.tus.ac.jp/st/teachers/3508/"},
+    "岡田研究室": {"関連URL": "https://www.rs.noda.tus.ac.jp/okadalab/"},
+    "松崎研究室": {"公式HP": "https://www.rs.tus.ac.jp/rmatsuza/"},
+    "荻原研究室": {"公式HP": "https://www.rs.tus.ac.jp/~ogihara_lab/"},
+    "早瀬研究室": {"公式HP": "https://www.rs.noda.tus.ac.jp/mhayase/"},
+    "荒井研究室": {"公式HP": "https://www.rs.tus.ac.jp/ir/index.html"},
+    "竹村研究室": {"公式HP": "https://www.rs.tus.ac.jp/brlab/", "関連URL": "https://dept.tus.ac.jp/st/teachers/5193/"},
+    "朝倉研究室": {"公式HP": "https://asakura-lab.labby.jp/"}
+}
+
 def load_spreadsheet_data():
     try:
         sheet_id = st.secrets["sheet_id"]
@@ -40,7 +56,8 @@ def load_spreadsheet_data():
 
 def display_lab_details(row):
     """研究室の詳細を表示する共通関数"""
-    with st.expander(f"【{row['研究室名']}】 Score: {row['Match_Score']}"):
+    lab_name = row['研究室名']
+    with st.expander(f"【{lab_name}】 Score: {row['Match_Score']}"):
         fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
         st.write(f"【分野】 {fields_str}")
         
@@ -57,6 +74,19 @@ def display_lab_details(row):
             st.write("【関連キーワード】")
             for cat, kws in grouped.items():
                 st.write(f"・**{cat}**: {', '.join(kws)}")
+                
+        # URLの表示処理（複数の場合にも対応）
+        lab_urls_dict = LAB_URLS.get(lab_name, {})
+        valid_links = []
+        for title, url in lab_urls_dict.items():
+            if url.strip():  # URLが空欄でない場合のみリンクを作成
+                valid_links.append(f"[{title}]({url})")
+                
+        if valid_links:
+            # 複数のリンクがある場合はスラッシュで区切って並べる
+            st.write(f"【関連リンク】 {' / '.join(valid_links)}")
+        else:
+            st.write("【関連リンク】 (URL未設定)")
 
 def main():
     st.set_page_config(page_title="研究室マッチング", layout="wide")
@@ -120,7 +150,6 @@ def main():
             st.write(f"▼ 【{category}】")
             cols = st.columns(3)
             for i, kw in enumerate(sorted(list(keywords))):
-                # ★ここが重要：categoryを含めることで重複を防ぐ
                 if cols[i % 3].checkbox(kw, key=f"b3_{category}_{kw}"):
                     selected_themes.append(kw)
             st.write("")
