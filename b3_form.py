@@ -68,7 +68,8 @@ def load_spreadsheet_data():
 def display_lab_details(row):
     """研究室の詳細を表示する共通関数"""
     lab_name = row['研究室名']
-    with st.expander(f"【{lab_name}】 Score: {row['Match_Score']}"):
+    # ここにタップを促す文言を追加しています
+    with st.expander(f"【{lab_name}】 Score: {row['Match_Score']} 👈 タップして詳細を見る"):
         fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
         st.write(f"【分野】 {fields_str}")
         
@@ -142,7 +143,7 @@ def main():
     """, unsafe_allow_html=True)
 
     st.title("ME研究室マッチングシステム")
-    st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．非公式なサイトのため，情報を鵜呑みにしないようにしましょう．詳細は各研究室に訪問することをおすすめします．")
+    st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．非公式なサイトのため，情報を鵜呑みにしないようにしましょう．詳細は各研究室に問い合わせることをおすすめします．")
 
     df = load_spreadsheet_data()
     if df.empty:
@@ -221,7 +222,7 @@ def main():
 
         st.subheader("診断結果")
         
-        st.info("💡 **【参考】機械工学科の公式ページも確認してみましょう**\n\n[学科公式HP 研究室一覧はこちら](https://www.rs.tus.ac.jp/me/laboratory.html)")
+        st.info("💡 【参考】機械工学科の公式ページも確認してみましょう\n\n[学科公式HP 研究室一覧はこちら](https://www.rs.tus.ac.jp/me/laboratory.html)")
         
         if len(selected_themes) == 0:
             for index, row in result_df.iterrows():
