@@ -125,7 +125,7 @@ def main():
     
     q1 = st.radio("■ 実験か解析か (1: 実験メイン ⇔ 5: 解析・シミュレーションメイン)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
     q2 = st.radio("■ スケジュール・拘束度 (1: 学生の自主性に任せられる ⇔ 5: 研究室側によるスケジュール管理が手厚い)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q3 = st.radio("■ サポート体制 (1: 教授・スタッフ陣の手厚い指導 ⇔ 5: 先輩を中心とした学生間のサポート)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    q3 = st.radio("■ サポート体制 (1: 教授の手厚い指導 ⇔ 5: 先輩を中心とした学生間のサポート)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
     q4 = st.radio("■ 研究アプローチ (1: 基礎原理の解明・理学寄り ⇔ 5: 社会実装・モノづくり・工学寄り)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
     q5 = st.radio("■ 研究室の雰囲気 (1: 和気あいあい・カジュアル ⇔ 5: 規律や礼儀を重んじる・フォーマル)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
     q6 = st.radio("■ 研究の進め方 (1: 個人作業が中心 ⇔ 5: チームでの共同作業が中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
