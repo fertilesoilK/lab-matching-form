@@ -21,6 +21,8 @@ LAB_URLS = {
     "朝倉研究室": {"公式HP": "https://asakura-lab.labby.jp/"}
 }
 
+# 10分間（600秒）データを記憶するキャッシュ機能を追加
+@st.cache_data(ttl=600)
 def load_spreadsheet_data():
     try:
         sheet_id = st.secrets["sheet_id"]
@@ -94,10 +96,8 @@ def display_lab_details(row):
             def get_indicator(val):
                 try:
                     v = int(val)
-                    # デフォルトは白抜きの四角形
                     boxes = ["□", "□", "□", "□", "□"]
                     if 1 <= v <= 5:
-                        # 該当箇所だけ見やすいライトグリーン（#4ade80）の塗りつぶし四角形にする
                         boxes[v-1] = '<span style="color: #4ade80;">■</span>'
                     return " ".join(boxes)
                 except:
@@ -105,7 +105,7 @@ def display_lab_details(row):
             
             st.markdown(f"・ 実験メイン {get_indicator(row['eval_1'])} 解析メイン", unsafe_allow_html=True)
             st.markdown(f"・ 学生の自主性に任せる {get_indicator(row['eval_2'])} スケジュール管理が手厚い", unsafe_allow_html=True)
-            st.markdown(f"・ 教授・スタッフの指導 {get_indicator(row['eval_3'])} 学生間のサポート中心", unsafe_allow_html=True)
+            st.markdown(f"・ 教授指導 {get_indicator(row['eval_3'])} 学生間のサポート中心", unsafe_allow_html=True)
             st.markdown(f"・ 基礎原理の解明(理学) {get_indicator(row['eval_4'])} 社会実装・開発(工学)", unsafe_allow_html=True)
             st.markdown(f"・ 和気あいあい(カジュアル) {get_indicator(row['eval_5'])} 規律・礼儀重視(フォーマル)", unsafe_allow_html=True)
             st.markdown(f"・ 個人作業が中心 {get_indicator(row['eval_6'])} チーム共同作業が中心", unsafe_allow_html=True)
@@ -133,7 +133,7 @@ def display_lab_details(row):
             st.write("【関連リンク】 (URL未設定)")
 
 def main():
-    st.set_page_config(page_title="ME研究室マッチング", layout="wide")
+    st.set_page_config(page_title="研究室マッチング", layout="wide")
     
     st.markdown("""
     <style>
@@ -142,8 +142,8 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("ME研究室マッチングシステム")
-    st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．非公式なサイトのため，情報を鵜呑みにしないようにしましょう．詳細は各研究室に問い合わせることをおすすめします．")
+    st.title("研究室マッチングシステム")
+    st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．非公式なサイトのため，情報を鵜呑みにしないようにしましょう．詳細は各研究室に訪問することをおすすめします．")
 
     df = load_spreadsheet_data()
     if df.empty:
