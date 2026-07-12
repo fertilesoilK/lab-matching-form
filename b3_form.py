@@ -36,7 +36,7 @@ def load_spreadsheet_data():
         if not records:
             return pd.DataFrame()
             
-        # 古いデータ（4列等）と新しいデータ（13列）が混在してもエラーにならないようにパディング処理
+        # データ列数の変化に対応（最大13列までパディング）
         padded_records = []
         for r in records:
             while len(r) < 13:
@@ -46,7 +46,7 @@ def load_spreadsheet_data():
         df = pd.DataFrame(padded_records, columns=[
             "Lab_ID", "研究室名", "分野", "キーワードデータ", 
             "公式HP", "関連URL1", "関連URL2", 
-            "Q1", "Q2", "Q3", "Q4", "Q5", "Q6"
+            "eval_1", "eval_2", "eval_3", "eval_4", "eval_5", "eval_6"
         ])
         
         def safe_eval(val):
@@ -72,7 +72,6 @@ def display_lab_details(row):
         fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
         st.write(f"【分野】 {fields_str}")
         
-        # --- 1. キーワード表示 ---
         kw_data = row['キーワードデータ']
         if isinstance(kw_data, list):
             grouped = {}
@@ -85,37 +84,34 @@ def display_lab_details(row):
             st.write("【関連キーワード】")
             for cat, kws in grouped.items():
                 st.write(f"・<u>{cat}</u>: {', '.join(kws)}", unsafe_allow_html=True)
-                
-        # --- 2. カルチャー・雰囲気の可視化 ---
-        q1, q2, q3 = row.get('Q1'), row.get('Q2'), row.get('Q3')
-        q4, q5, q6 = row.get('Q4'), row.get('Q5'), row.get('Q6')
-        
-        # 回答データが存在する場合のみ表示
-        if any(str(q).strip() for q in [q1, q2, q3, q4, q5, q6]):
-            st.write("") # スペース確保
-            st.markdown("**【カルチャー・雰囲気】**")
+
+        # カルチャー・雰囲気の表示
+        if row.get('eval_1'):
+            st.write("")
+            st.write("【カルチャー・雰囲気】")
             
-            def get_bar_text(val, left_label, right_label):
+            def get_indicator(val):
                 try:
                     v = int(val)
-                    bar = "".join(["■" if i == v else "□" for i in range(1, 6)])
-                    return f"- {left_label} `{bar}` {right_label}"
+                    # デフォルトは白抜きの四角形
+                    boxes = ["□", "□", "□", "□", "□"]
+                    if 1 <= v <= 5:
+                        # 該当箇所だけ見やすいライトグリーン（#4ade80）の塗りつぶし四角形にする
+                        boxes[v-1] = '<span style="color: #4ade80;">■</span>'
+                    return " ".join(boxes)
                 except:
-                    return ""
+                    return "□ □ □ □ □"
             
-            c1 = get_bar_text(q1, "実験メイン", "解析メイン")
-            c2 = get_bar_text(q2, "学生の自主性に任せる", "スケジュール管理が手厚い")
-            c3 = get_bar_text(q3, "教授・スタッフの指導", "学生間のサポート中心")
-            c4 = get_bar_text(q4, "基礎原理の解明(理学)", "社会実装・開発(工学)")
-            c5 = get_bar_text(q5, "和気あいあい(カジュアル)", "規律・礼儀重視(フォーマル)")
-            c6 = get_bar_text(q6, "個人作業が中心", "チーム共同作業が中心")
-            
-            culture_block = "\n".join([c for c in [c1, c2, c3, c4, c5, c6] if c])
-            if culture_block:
-                st.markdown(culture_block)
+            st.markdown(f"・ 実験メイン {get_indicator(row['eval_1'])} 解析メイン", unsafe_allow_html=True)
+            st.markdown(f"・ 学生の自主性に任せる {get_indicator(row['eval_2'])} スケジュール管理が手厚い", unsafe_allow_html=True)
+            st.markdown(f"・ 教授・スタッフの指導 {get_indicator(row['eval_3'])} 学生間のサポート中心", unsafe_allow_html=True)
+            st.markdown(f"・ 基礎原理の解明(理学) {get_indicator(row['eval_4'])} 社会実装・開発(工学)", unsafe_allow_html=True)
+            st.markdown(f"・ 和気あいあい(カジュアル) {get_indicator(row['eval_5'])} 規律・礼儀重視(フォーマル)", unsafe_allow_html=True)
+            st.markdown(f"・ 個人作業が中心 {get_indicator(row['eval_6'])} チーム共同作業が中心", unsafe_allow_html=True)
 
-        # --- 3. URL表示 ---
-        st.write("") # スペース確保
+            st.write("")
+                
+        # URLの動的表示処理
         lab_urls_dict = LAB_URLS.get(lab_name, {}).copy()
         
         if pd.notna(row.get('公式HP')) and str(row['公式HP']).strip():
@@ -225,7 +221,6 @@ def main():
 
         st.subheader("診断結果")
         
-        # 学科公式の研究室紹介ページへの案内
         st.info("💡 **【参考】機械工学科の公式ページも確認してみましょう**\n\n[学科公式HP 研究室一覧はこちら](https://www.rs.tus.ac.jp/me/laboratory.html)")
         
         if len(selected_themes) == 0:
