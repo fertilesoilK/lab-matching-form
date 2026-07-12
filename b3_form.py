@@ -132,7 +132,7 @@ def display_lab_details(row):
             st.write("【関連リンク】 (URL未設定)")
 
 def main():
-    st.set_page_config(page_title="研究室マッチング", layout="wide")
+    st.set_page_config(page_title="ME研究室マッチング", layout="wide")
     
     st.markdown("""
     <style>
@@ -141,7 +141,7 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("研究室マッチングシステム")
+    st.title("ME研究室マッチングシステム")
     st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．非公式なサイトのため，情報を鵜呑みにしないようにしましょう．詳細は各研究室に訪問することをおすすめします．")
 
     df = load_spreadsheet_data()
