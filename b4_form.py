@@ -11,8 +11,12 @@ ROMAJI_DICT = {
     "荒井研究室": "arai", "竹村研究室": "takemura", "朝倉研究室": "asakura"
 }
 
-# 分野リスト
-CATEGORY_LIST = ["熱・流体", "材料・構造", "制御・機械・ロボット", "生体・医療", "解析・プログラミング・情報", "その他・環境・設備"]
+# 分野リスト（カスタムキーワード追加用を新しいカテゴリ名に統一）
+CATEGORY_LIST = [
+    "流体・熱", "航空宇宙・推進システム", "材料・構造", 
+    "ロボティクス・制御・機械", "計算工学・データサイエンス", 
+    "バイオ・環境・極限環境", "実験・設備・その他ツール"
+]
 
 def save_data(data_dict):
     """Googleスプレッドシートへデータを追記する関数"""
@@ -24,11 +28,14 @@ def save_data(data_dict):
     client = gspread.authorize(creds)
     
     sheet = client.open_by_key(sheet_id).sheet1
+    # URLを含めた6列のデータを保存
     row_values = [
         data_dict["Lab_ID"],
         data_dict["研究室名"],
         data_dict["分野"],
-        data_dict["キーワードデータ"]
+        data_dict["キーワードデータ"],
+        data_dict.get("公式HP", ""),
+        data_dict.get("関連URL", "")
     ]
     sheet.append_row(row_values)
 
@@ -96,11 +103,11 @@ def main():
         "真空装置", "着磁", "3Dプリンタ", "Fusion", "理学", "Mac", "リモート", 
         "VR", "共同研究", "Claude", "Notion", "フォトリソグラフィー", "電気化学", "小型燃料電池","解析手法構築","水電解"
     ]
-}
+    }
 
     selected_kw_pairs = []
 
-    # 定型キーワード（3列表示に変更）
+    # 定型キーワード
     for category, keywords in categorized_keywords.items():
         st.write(f"▼ 【{category}】")
         cols = st.columns(3)
@@ -142,6 +149,13 @@ def main():
         st.rerun()
 
     st.markdown("---")
+    
+    st.header("3. 研究室の関連URLの登録（任意）")
+    st.write("B3向けに案内したい研究室の公式HPや，関連するURLを最大2つまで入力してください．")
+    official_url = st.text_input("■ 公式HPのURL（任意）")
+    related_url = st.text_input("■ その他の関連URL（任意）")
+    
+    st.markdown("---")
 
     # 登録処理
     if st.button("この内容で登録する", type="primary"):
@@ -155,7 +169,9 @@ def main():
                 "Lab_ID": f"{ROMAJI_DICT[lab_name]}",
                 "研究室名": lab_name,
                 "分野": str(fields),
-                "キーワードデータ": str(final_kw_data)
+                "キーワードデータ": str(final_kw_data),
+                "公式HP": official_url.strip(),
+                "関連URL": related_url.strip()
             }
             save_data(data_to_save)
             st.success(f"「{lab_name}」のデータを登録しました！")
