@@ -11,7 +11,7 @@ ROMAJI_DICT = {
     "荒井研究室": "arai", "竹村研究室": "takemura", "朝倉研究室": "asakura"
 }
 
-# 分野リスト（カスタムキーワード追加用を新しいカテゴリ名に統一）
+# 分野リスト
 CATEGORY_LIST = [
     "流体・熱", "航空宇宙・推進システム", "材料・構造", 
     "ロボティクス・制御・機械", "計算工学・データサイエンス", 
@@ -28,14 +28,15 @@ def save_data(data_dict):
     client = gspread.authorize(creds)
     
     sheet = client.open_by_key(sheet_id).sheet1
-    # URLを含めた6列のデータを保存
+    # URLを含めた7列のデータを保存
     row_values = [
         data_dict["Lab_ID"],
         data_dict["研究室名"],
         data_dict["分野"],
         data_dict["キーワードデータ"],
         data_dict.get("公式HP", ""),
-        data_dict.get("関連URL", "")
+        data_dict.get("関連URL1", ""),
+        data_dict.get("関連URL2", "")
     ]
     sheet.append_row(row_values)
 
@@ -92,7 +93,7 @@ def main():
         "CFD解析", "数値解析", "画像解析", "MATLAB", "プログラミング", "フーリエ解析", 
         "人工知能", "機械学習", "有限要素法", "サンプリングモアレ法", "強化学習", 
         "CAE", "IGA", "FPM", "重合メッシュ法", "プログラム実装", "fortran", "c言語", 
-        "python", "テンソル解析", "領域積分法", "Simulink", "統計","marc"
+        "python", "テン পরিচয়解析", "領域積分法", "Simulink", "統計","marc"
     ],
     "バイオ・環境・極限環境": [
         "生体機械", "バイオメカニクス", "脳波", "介護支援", "内視鏡", "生命維持", 
@@ -119,7 +120,6 @@ def main():
     st.markdown("---")
     st.write("■ 選択肢にないキーワードを追加")
 
-    # カスタムキーワード用のリスト管理
     if "custom_kw_ids" not in st.session_state:
         st.session_state.custom_kw_ids = [0]
         st.session_state.next_kw_id = 1
@@ -127,7 +127,6 @@ def main():
     def remove_row(row_id):
         st.session_state.custom_kw_ids.remove(row_id)
 
-    # 行の描画
     for row_id in st.session_state.custom_kw_ids:
         col_c1, col_c2, col_c3 = st.columns([2, 1, 0.5])
         with col_c1:
@@ -151,13 +150,13 @@ def main():
     st.markdown("---")
     
     st.header("3. 研究室の関連URLの登録（任意）")
-    st.write("B3向けに案内したい研究室の公式HPや，関連するURLを最大2つまで入力してください．")
+    st.write("B3向けに案内したい研究室の公式HPや，関連するURLを入力してください．")
     official_url = st.text_input("■ 公式HPのURL（任意）")
-    related_url = st.text_input("■ その他の関連URL（任意）")
+    related_url_1 = st.text_input("■ 関連URL 1（任意）")
+    related_url_2 = st.text_input("■ 関連URL 2（任意）")
     
     st.markdown("---")
 
-    # 登録処理
     if st.button("この内容で登録する", type="primary"):
         if lab_name == "選択してください" or len(fields) == 0:
             st.error("研究室名と分野は必須項目です．")
@@ -171,7 +170,8 @@ def main():
                 "分野": str(fields),
                 "キーワードデータ": str(final_kw_data),
                 "公式HP": official_url.strip(),
-                "関連URL": related_url.strip()
+                "関連URL1": related_url_1.strip(),
+                "関連URL2": related_url_2.strip()
             }
             save_data(data_to_save)
             st.success(f"「{lab_name}」のデータを登録しました！")

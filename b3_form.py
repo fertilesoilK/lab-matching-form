@@ -5,8 +5,7 @@ import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 研究室のURLリスト（「"リンクの表示名": "URL"」の形式）
-# ※ここに書かれているものは初期値として扱われ，B4が新しいURLを入力した場合は自動で追加・上書きされます．
+# 研究室のURLリスト（初期値）
 LAB_URLS = {
     "上野研究室": {"公式HP": "https://www.rs.tus.ac.jp/ueno_lab/index.html", "関連URL": "https://dept.tus.ac.jp/st/souiki-journal/6754/"},
     "塚原研究室": {"公式HP": "https://www.rs.tus.ac.jp/~t2lab/index-j.html", "関連URL": "https://www.jsme-fed.org/laboratories/2023_12/001.html"},
@@ -37,14 +36,14 @@ def load_spreadsheet_data():
         if not records:
             return pd.DataFrame()
             
-        # 過去のデータ（4列）と新しいデータ（6列）が混在してもエラーにならないようにパディング処理を行う
+        # 過去のデータ（4列）と新しいデータ（7列）が混在してもエラーにならないように処理
         padded_records = []
         for r in records:
-            while len(r) < 6:
+            while len(r) < 7:
                 r.append("")
-            padded_records.append(r[:6])
+            padded_records.append(r[:7])
             
-        df = pd.DataFrame(padded_records, columns=["Lab_ID", "研究室名", "分野", "キーワードデータ", "公式HP", "関連URL"])
+        df = pd.DataFrame(padded_records, columns=["Lab_ID", "研究室名", "分野", "キーワードデータ", "公式HP", "関連URL1", "関連URL2"])
         
         def safe_eval(val):
             try:
@@ -83,14 +82,14 @@ def display_lab_details(row):
                 st.write(f"・<u>{cat}</u>: {', '.join(kws)}", unsafe_allow_html=True)
                 
         # URLの動的表示処理
-        # 1. ハードコードされている初期データをコピー
         lab_urls_dict = LAB_URLS.get(lab_name, {}).copy()
         
-        # 2. スプレッドシートに入力されたURLがあれば追加・上書きする
         if pd.notna(row.get('公式HP')) and str(row['公式HP']).strip():
             lab_urls_dict["公式HP"] = str(row['公式HP']).strip()
-        if pd.notna(row.get('関連URL')) and str(row['関連URL']).strip():
-            lab_urls_dict["関連URL"] = str(row['関連URL']).strip()
+        if pd.notna(row.get('関連URL1')) and str(row['関連URL1']).strip():
+            lab_urls_dict["関連URL 1"] = str(row['関連URL1']).strip()
+        if pd.notna(row.get('関連URL2')) and str(row['関連URL2']).strip():
+            lab_urls_dict["関連URL 2"] = str(row['関連URL2']).strip()
             
         valid_links = []
         for title, url in lab_urls_dict.items():
@@ -191,6 +190,10 @@ def main():
         result_df = result_df.sort_values(by="Match_Score", ascending=False)
 
         st.subheader("診断結果")
+        
+        # ここに学科公式の研究室紹介ページへの案内を追加
+        st.info("💡 **【参考】機械工学科の公式ページも確認してみましょう**\n\n[学科公式HP 研究室一覧はこちら](https://www.rs.tus.ac.jp/me/laboratory.html)")
+        
         if len(selected_themes) == 0:
             for index, row in result_df.iterrows():
                 display_lab_details(row)
