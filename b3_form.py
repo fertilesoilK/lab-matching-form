@@ -5,7 +5,8 @@ import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 研究室のURLリスト（「"リンクの表示名": "URL"」の形式でカンマ区切りで複数追加できます）
+# 研究室のURLリスト（「"リンクの表示名": "URL"」の形式）
+# ※ここに書かれているものは初期値として扱われ，B4が新しいURLを入力した場合は自動で追加・上書きされます．
 LAB_URLS = {
     "上野研究室": {"公式HP": "https://www.rs.tus.ac.jp/ueno_lab/index.html", "関連URL": "https://dept.tus.ac.jp/st/souiki-journal/6754/"},
     "塚原研究室": {"公式HP": "https://www.rs.tus.ac.jp/~t2lab/index-j.html", "関連URL": "https://www.jsme-fed.org/laboratories/2023_12/001.html"},
@@ -36,7 +37,14 @@ def load_spreadsheet_data():
         if not records:
             return pd.DataFrame()
             
-        df = pd.DataFrame(records, columns=["Lab_ID", "研究室名", "分野", "キーワードデータ"])
+        # 過去のデータ（4列）と新しいデータ（6列）が混在してもエラーにならないようにパディング処理を行う
+        padded_records = []
+        for r in records:
+            while len(r) < 6:
+                r.append("")
+            padded_records.append(r[:6])
+            
+        df = pd.DataFrame(padded_records, columns=["Lab_ID", "研究室名", "分野", "キーワードデータ", "公式HP", "関連URL"])
         
         def safe_eval(val):
             try:
@@ -65,7 +73,6 @@ def display_lab_details(row):
         if isinstance(kw_data, list):
             grouped = {}
             for kw, cat in kw_data:
-                # データのカテゴリを統一
                 cat = "その他・環境・設備" if cat in ["実験・設備・その他ツール", "その他・環境・設備"] else cat
                 if cat not in grouped:
                     grouped[cat] = []
@@ -73,17 +80,24 @@ def display_lab_details(row):
             
             st.write("【関連キーワード】")
             for cat, kws in grouped.items():
-                st.write(f"・**{cat}**: {', '.join(kws)}")
+                st.write(f"・<u>{cat}</u>: {', '.join(kws)}", unsafe_allow_html=True)
                 
-        # URLの表示処理（複数の場合にも対応）
-        lab_urls_dict = LAB_URLS.get(lab_name, {})
+        # URLの動的表示処理
+        # 1. ハードコードされている初期データをコピー
+        lab_urls_dict = LAB_URLS.get(lab_name, {}).copy()
+        
+        # 2. スプレッドシートに入力されたURLがあれば追加・上書きする
+        if pd.notna(row.get('公式HP')) and str(row['公式HP']).strip():
+            lab_urls_dict["公式HP"] = str(row['公式HP']).strip()
+        if pd.notna(row.get('関連URL')) and str(row['関連URL']).strip():
+            lab_urls_dict["関連URL"] = str(row['関連URL']).strip()
+            
         valid_links = []
         for title, url in lab_urls_dict.items():
-            if url.strip():  # URLが空欄でない場合のみリンクを作成
+            if url.strip():
                 valid_links.append(f"[{title}]({url})")
                 
         if valid_links:
-            # 複数のリンクがある場合はスラッシュで区切って並べる
             st.write(f"【関連リンク】 {' / '.join(valid_links)}")
         else:
             st.write("【関連リンク】 (URL未設定)")
@@ -131,14 +145,12 @@ def main():
                 for kw_tuple in kw_list:
                     if len(kw_tuple) >= 2:
                         kw, cat = kw_tuple[0], kw_tuple[1]
-                        # データを統一
                         if cat in ["実験・設備・その他ツール", "その他・環境・設備"]:
                             cat = "その他・環境・設備"
                         
                         if cat not in grouped_keywords: grouped_keywords[cat] = set()
                         grouped_keywords[cat].add(kw)
 
-        # カテゴリの並び替え（その他を最後にする）
         all_categories = sorted(list(grouped_keywords.keys()))
         if "その他・環境・設備" in all_categories:
             all_categories.remove("その他・環境・設備")
