@@ -78,7 +78,9 @@ def display_lab_details(row):
         if isinstance(kw_data, list):
             grouped = {}
             for kw, cat in kw_data:
-                cat = "その他・環境・設備" if cat in ["実験・設備・その他ツール", "その他・環境・設備"] else cat
+                # 古いカテゴリ名が含まれていても「その他」を含む名称に統一する処理
+                if cat in ["実験・設備・その他ツール", "その他・環境・設備", "設備・実験手法・ツール", "設備・実験手法・その他ツール"]:
+                    cat = "設備・実験手法・その他ツール"
                 if cat not in grouped:
                     grouped[cat] = []
                 grouped[cat].append(kw)
@@ -189,16 +191,16 @@ def main():
                 for kw_tuple in kw_list:
                     if len(kw_tuple) >= 2:
                         kw, cat = kw_tuple[0], kw_tuple[1]
-                        if cat in ["実験・設備・その他ツール", "その他・環境・設備"]:
-                            cat = "その他・環境・設備"
+                        if cat in ["実験・設備・その他ツール", "その他・環境・設備", "設備・実験手法・ツール", "設備・実験手法・その他ツール"]:
+                            cat = "設備・実験手法・その他ツール"
                         
                         if cat not in grouped_keywords: grouped_keywords[cat] = set()
                         grouped_keywords[cat].add(kw)
 
         all_categories = sorted(list(grouped_keywords.keys()))
-        if "その他・環境・設備" in all_categories:
-            all_categories.remove("その他・環境・設備")
-            all_categories.append("その他・環境・設備")
+        if "設備・実験手法・その他ツール" in all_categories:
+            all_categories.remove("設備・実験手法・その他ツール")
+            all_categories.append("設備・実験手法・その他ツール")
 
         selected_themes = []
         for category in all_categories:
