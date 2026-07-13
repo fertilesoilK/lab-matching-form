@@ -1,203 +1,263 @@
 import streamlit as st
+import pandas as pd
+import ast
+import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import json
 
-ROMAJI_DICT = {
-    "上野研究室": "ueno", "塚原研究室": "tsukahara", "青野研究室": "aono",
-    "田口研究室": "taguchi", "高橋研究室": "takahashi", "岡田研究室": "okada",
-    "松崎研究室": "matsuzaki", "荻原研究室": "ogihara", "早瀬研究室": "hayase",
-    "荒井研究室": "arai", "竹村研究室": "takemura", "朝倉研究室": "asakura"
+# 研究室のURLリスト（初期値）
+LAB_URLS = {
+    "上野研究室": {"公式HP": "https://www.rs.tus.ac.jp/ueno_lab/index.html", "関連URL": "https://dept.tus.ac.jp/st/souiki-journal/6754/"},
+    "塚原研究室": {"公式HP": "https://www.rs.tus.ac.jp/~t2lab/index-j.html", "関連URL": "https://www.jsme-fed.org/laboratories/2023_12/001.html"},
+    "青野研究室": {"公式HP": "https://sites.google.com/view/hikaruaono/home"},
+    "田口研究室": {"公式HP": ""},
+    "高橋研究室": {"公式HP": "https://www.rs.tus.ac.jp/takahashi_lab/", "関連URL": "https://dept.tus.ac.jp/st/teachers/3508/"},
+    "岡田研究室": {"関連URL": "https://www.rs.noda.tus.ac.jp/okadalab/"},
+    "松崎研究室": {"公式HP": "https://www.rs.tus.ac.jp/rmatsuza/"},
+    "荻原研究室": {"公式HP": "https://www.rs.tus.ac.jp/~ogihara_lab/"},
+    "早瀬研究室": {"公式HP": "https://www.rs.noda.tus.ac.jp/mhayase/"},
+    "荒井研究室": {"公式HP": "https://www.rs.tus.ac.jp/ir/index.html"},
+    "竹村研究室": {"公式HP": "https://www.rs.tus.ac.jp/brlab/", "関連URL": "https://dept.tus.ac.jp/st/teachers/5193/"},
+    "朝倉研究室": {"公式HP": "https://asakura-lab.labby.jp/"}
 }
 
-CATEGORY_LIST = [
-    "流体・熱・エネルギー", "航空・宇宙", "材料・構造・固体力学", 
-    "ロボティクス・制御・機械要素", "解析・シミュレーション・情報", 
-    "生体・医療・バイオメカニクス", "設備・実験手法・ツール"
-]
+# 10分間（600秒）データを記憶するキャッシュ機能を追加
+@st.cache_data(ttl=600)
+def load_spreadsheet_data():
+    try:
+        sheet_id = st.secrets["sheet_id"]
+        creds_dict = json.loads(st.secrets["gcp_service_account"])
+        
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(creds)
+        
+        sheet = client.open_by_key(sheet_id).sheet1
+        records = sheet.get_all_values()
+        
+        if not records:
+            return pd.DataFrame()
+            
+        # データ列数の変化に対応（最大13列までパディング）
+        padded_records = []
+        for r in records:
+            while len(r) < 13:
+                r.append("")
+            padded_records.append(r[:13])
+            
+        df = pd.DataFrame(padded_records, columns=[
+            "Lab_ID", "研究室名", "分野", "キーワードデータ", 
+            "公式HP", "関連URL1", "関連URL2", 
+            "eval_1", "eval_2", "eval_3", "eval_4", "eval_5", "eval_6"
+        ])
+        
+        def safe_eval(val):
+            try:
+                if isinstance(val, str) and val.startswith('['):
+                    return ast.literal_eval(val)
+                return []
+            except:
+                return []
 
-def save_data(data_dict):
-    sheet_id = st.secrets["sheet_id"]
-    creds_dict = json.loads(st.secrets["gcp_service_account"])
-    
-    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-    client = gspread.authorize(creds)
-    
-    sheet = client.open_by_key(sheet_id).sheet1
-    row_values = [
-        data_dict["Lab_ID"],
-        data_dict["研究室名"],
-        data_dict["分野"],
-        data_dict["キーワードデータ"],
-        data_dict.get("公式HP", ""),
-        data_dict.get("関連URL1", ""),
-        data_dict.get("関連URL2", ""),
-        data_dict.get("eval_1", ""),
-        data_dict.get("eval_2", ""),
-        data_dict.get("eval_3", ""),
-        data_dict.get("eval_4", ""),
-        data_dict.get("eval_5", ""),
-        data_dict.get("eval_6", "")
-    ]
-    sheet.append_row(row_values)
+        df["分野"] = df["分野"].apply(safe_eval)
+        df["キーワードデータ"] = df["キーワードデータ"].apply(safe_eval)
+        
+        return df
+    except Exception as e:
+        st.error(f"スプレッドシートの読み込み中にエラーが発生しました: {e}")
+        return pd.DataFrame()
+
+def display_lab_details(row):
+    """研究室の詳細を表示する共通関数"""
+    lab_name = row['研究室名']
+    with st.expander(f"【{lab_name}】 Score: {row['Match_Score']} 👈 タップして詳細を見る"):
+        fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
+        st.write(f"【分野】 {fields_str}")
+        
+        kw_data = row['キーワードデータ']
+        if isinstance(kw_data, list):
+            grouped = {}
+            for kw, cat in kw_data:
+                # 古いカテゴリ名が含まれていても「その他」を含む名称に統一する処理
+                if cat in ["実験・設備・その他ツール", "その他・環境・設備", "設備・実験手法・ツール", "設備・実験手法・その他ツール"]:
+                    cat = "設備・実験手法・その他ツール"
+                if cat not in grouped:
+                    grouped[cat] = []
+                grouped[cat].append(kw)
+            
+            st.write("【関連キーワード】")
+            for cat, kws in grouped.items():
+                st.write(f"・<u>{cat}</u>: {', '.join(kws)}", unsafe_allow_html=True)
+
+        # カルチャー・雰囲気の表示（レイアウト改善・コードブロック化回避）
+        if row.get('eval_1'):
+            st.write("")
+            st.write("【カルチャー・雰囲気】")
+            
+            def make_eval_row(left_text, val, right_text):
+                try:
+                    v = int(val)
+                    boxes = ["<span style='color: rgba(128,128,128,0.4);'>□</span>"] * 5
+                    if 1 <= v <= 5:
+                        boxes[v-1] = '<span style="color: #4ade80; font-size: 1.1em;">■</span>'
+                    indicator = "&nbsp;&nbsp;".join(boxes)
+                except:
+                    indicator = "&nbsp;&nbsp;".join(["<span style='color: rgba(128,128,128,0.4);'>□</span>"] * 5)
+                
+                # インデント（スペース）を含めないように文字列を連結
+                return (
+                    '<div style="display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">'
+                    f'<div style="flex: 1; text-align: right; padding-right: 15px; font-size: 0.95em;">{left_text}</div>'
+                    f'<div style="flex: 0 0 auto; font-size: 1.2em; letter-spacing: 1px;">{indicator}</div>'
+                    f'<div style="flex: 1; text-align: left; padding-left: 15px; font-size: 0.95em;">{right_text}</div>'
+                    '</div>'
+                )
+
+            # 同じくインデントをなくしてコードブロック化を防ぐ
+            eval_html = (
+                '<div style="background-color: rgba(128, 128, 128, 0.1); padding: 15px 10px 10px 10px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;">'
+                + make_eval_row("実験メイン", row.get('eval_1'), "解析メイン")
+                + make_eval_row("学生の自主性に任せる", row.get('eval_2'), "スケジュール管理が手厚い")
+                + make_eval_row("教授指導", row.get('eval_3'), "学生間のサポート中心")
+                + make_eval_row("基礎原理の解明(理学)", row.get('eval_4'), "社会実装・開発(工学)")
+                + make_eval_row("和気あいあい(カジュアル)", row.get('eval_5'), "規律・礼儀重視(フォーマル)")
+                + make_eval_row("個人作業が中心", row.get('eval_6'), "チーム共同作業が中心")
+                + '</div>'
+            )
+            st.markdown(eval_html, unsafe_allow_html=True)
+
+            st.write("")
+                
+        # URLの動的表示処理
+        lab_urls_dict = LAB_URLS.get(lab_name, {}).copy()
+        
+        if pd.notna(row.get('公式HP')) and str(row['公式HP']).strip():
+            lab_urls_dict["公式HP"] = str(row['公式HP']).strip()
+        if pd.notna(row.get('関連URL1')) and str(row['関連URL1']).strip():
+            lab_urls_dict["関連URL 1"] = str(row['関連URL1']).strip()
+        if pd.notna(row.get('関連URL2')) and str(row['関連URL2']).strip():
+            lab_urls_dict["関連URL 2"] = str(row['関連URL2']).strip()
+            
+        valid_links = []
+        for title, url in lab_urls_dict.items():
+            if url.strip():
+                valid_links.append(f"[{title}]({url})")
+                
+        if valid_links:
+            st.write(f"【関連リンク】 {' / '.join(valid_links)}")
+        else:
+            st.write("【関連リンク】 (URL未設定)")
 
 def main():
+    st.set_page_config(page_title="ME研究室マッチング", layout="wide")
+    
     st.markdown("""
     <style>
-    div[data-testid="stCheckbox"] input[type="checkbox"] {
-        transform: scale(1.5);
-    }
-    div[data-testid="stCheckbox"] label {
-        font-size: 1.1em;
-        margin-left: 8px;
-    }
+    div[data-testid="stCheckbox"] input[type="checkbox"] { transform: scale(1.3); }
+    div[data-testid="stCheckbox"] label { font-size: 1.05em; margin-left: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-    st.set_page_config(page_title="【B4向け】研究室情報登録フォーム", layout="wide")
-    st.title("B4向け研究室情報 登録フォーム")
-    st.write("必要不可欠な単語を除き，できる限りB3が理解可能な単語を入力してください．選んだキーワードがそのままB3のもとへ届きます．選択肢以上に適切なキーワードがある場合は，該当する選択肢にチェックは入れず，「選択肢にないワードを追加」の欄でキーワードを追加してください．")
+    st.title("ME研究室マッチングシステム")
+    st.write("Ｂ４の先輩たちのデータをもとに，あなたにぴったりの研究室を診断します．非公式なサイトのため，情報を鵜呑みにしないようにしましょう．詳細は各研究室に訪問することをおすすめします．")
 
-    st.markdown("---")
+    df = load_spreadsheet_data()
+    if df.empty:
+        st.warning("研究室のデータが見つかりません．スプレッドシートにデータが登録されているか確認してください．")
+        return
 
-    st.header("1. 基本情報")
-    lab_name = st.selectbox("■ 研究室名", ["選択してください"] + list(ROMAJI_DICT.keys()))
-    fields = st.multiselect("■ 研究室全体の分野（複数選択可）", ["熱", "流体", "材料", "制御", "振動学"])
-
-    st.markdown("---")
-    st.header("2. 研究キーワードの登録")
+    st.markdown("---") 
+    st.header("希望条件を入力してください")
     
-    # キーワードを関連性の高い順序に整理
-    categorized_keywords = {
-        "流体・熱・エネルギー": [
-            "流体力学", "流体", "熱流体", "ナビエ・ストークス方程式", "無次元化", 
-            "層流", "乱流", "低Re数", "高Re数流れ", "流れの遷移", "複雑な流れ現象", "亜音速", "粘弾性流体", "境界層", 
-            "伝熱", "沸騰現象", "気液混相流", "表面張力", "濡れ現象", "マランゴニ対流", 
-            "マイクロ流路", "熱交換器", "エネルギー効率", "プラントのガス漏洩検知"
-        ],
-        "航空・宇宙": [
-            "航空機", "航空機設計", "航空機翼", "翼の空力設計", "翼の最適化設計", "風洞実験", "離陸飛行実験", 
-            "ターボジェットエンジン", "極超音速エンジン", "複合サイクルエンジン", "スペースプレーン", "エンジン設計", "エンジン制御", "流路切替機構設計", 
-            "宇宙環境", "火星利用", "NASA", "JAXA", "生命維持", "水電解"
-        ],
-        "材料・構造・固体力学": [
-            "材料力学", "連続体力学", "弾塑性力学", "損傷力学", "材料強度学", "破壊力学", "非線形破壊力学", "強度評価", 
-            "疲労", "繰り返し荷重", "亀裂進展", "J積分", "コンプライアンス", 
-            "引張試験", "衝撃強度試験", "DCB試験", "破面観察", "走査電子顕微鏡", 
-            "複合材料", "CFRP", "リサイクルCFRP", "GFRP", "セラミックス", "フラン樹脂", "ダイヤモンド", 
-            "溶接", "成膜", "銅メッキ", "白金触媒", "プラズマ照射"
-        ],
-        "ロボティクス・制御・機械要素": [
-            "ロボット", "ロボットアーム", "人工筋肉", "自動化", "モーションキャプチャ", "センサ", 
-            "ドローン", "小型ロボットヘリコプター", "マイクロ航空機", "羽ばたき", "自立飛行", "飛行制御", 
-            "ロバスト制御", "設計", 
-            "ギア", "電子工作", "MEMS", "レーザー加工", "流量計開発・評価"
-        ],
-        "解析・シミュレーション・情報": [
-            "数値解析", "CFD解析", "CAE", "有限要素法", "IGA", "FPM", "重合メッシュ法", "領域積分法", "サンプリングモアレ法", "marc", "解析手法構築", 
-            "フーリエ解析", "テンソル解析", "統計", "情報理論・データサイエンス", 
-            "人工知能", "機械学習", "深層学習・CNN", "強化学習", "画像解析", 
-            "プログラミング", "プログラム実装", "python", "c言語", "fortran", "MATLAB", "Simulink"
-        ],
-        "生体・医療・バイオメカニクス": [
-            "生体工学", "バイオメカニクス", "生体機械", "生物模倣", "アクティブマター・自己駆動粒子", 
-            "血流・血管の解析", "脳波", "がん細胞", 
-            "人工心臓・人工弁", "内視鏡", "介護支援"
-        ],
-        "設備・実験手法・ツール": [
-            "実験", "実験装置設計", "理学", "共同研究", 
-            "ハイスピードカメラ", "電子顕微鏡", "真空装置", "着磁", "3Dプリンタ", "フォトリソグラフィー", "電気化学", "小型燃料電池", 
-            "Fusion", "VR", "リモート", "Mac", "Claude", "Notion"
-        ]
-    }
+    target_mode = st.radio("研究室をどの範囲から探しますか？", ["全ての研究室から診断する", "分野を絞って診断する"], label_visibility="collapsed")
+    all_fields_set = set()
+    for fields_list in df["分野"]:
+        if isinstance(fields_list, list): all_fields_set.update(fields_list)
+    available_fields = sorted(list(all_fields_set))
 
-    selected_kw_pairs = []
+    if target_mode == "分野を絞って診断する":
+        selected_fields = st.multiselect("診断したい分野を選択してください（複数可）", available_fields)
+        target_df = df[df["分野"].apply(lambda x: any(field in x for field in selected_fields))] if selected_fields else pd.DataFrame(columns=df.columns)
+    else:
+        target_df = df
 
-    for category, keywords in categorized_keywords.items():
-        st.write(f"▼ 【{category}】")
-        cols = st.columns(3)
-        for i, kw in enumerate(keywords):
-            if cols[i % 3].checkbox(kw, key=f"kw_{kw}"):
-                selected_kw_pairs.append((kw, category))
-        st.write("")
+    st.write("") 
+    st.write("■ 気になるキーワードを選択（複数可）")
+    
+    if not target_df.empty:
+        grouped_keywords = {}
+        for kw_list in target_df["キーワードデータ"]:
+            if isinstance(kw_list, list):
+                for kw_tuple in kw_list:
+                    if len(kw_tuple) >= 2:
+                        kw, cat = kw_tuple[0], kw_tuple[1]
+                        if cat in ["実験・設備・その他ツール", "その他・環境・設備", "設備・実験手法・ツール", "設備・実験手法・その他ツール"]:
+                            cat = "設備・実験手法・その他ツール"
+                        
+                        if cat not in grouped_keywords: grouped_keywords[cat] = set()
+                        grouped_keywords[cat].add(kw)
 
-    st.markdown("---")
-    st.write("■ 選択肢にないキーワードを追加")
+        all_categories = sorted(list(grouped_keywords.keys()))
+        if "設備・実験手法・その他ツール" in all_categories:
+            all_categories.remove("設備・実験手法・その他ツール")
+            all_categories.append("設備・実験手法・その他ツール")
 
-    if "custom_kw_ids" not in st.session_state:
-        st.session_state.custom_kw_ids = [0]
-        st.session_state.next_kw_id = 1
+        selected_themes = []
+        for category in all_categories:
+            keywords = grouped_keywords[category]
+            st.write(f"▼ 【{category}】")
+            cols = st.columns(3)
+            for i, kw in enumerate(sorted(list(keywords))):
+                if cols[i % 3].checkbox(kw, key=f"b3_{category}_{kw}"):
+                    selected_themes.append(kw)
+            st.write("")
+    else:
+        st.write("※上の選択欄で分野を選ぶと，該当する研究室のキーワードが表示されます．")
+        selected_themes = []
 
-    def remove_row(row_id):
-        st.session_state.custom_kw_ids.remove(row_id)
+    st.markdown("---") 
 
-    for row_id in st.session_state.custom_kw_ids:
-        col_c1, col_c2, col_c3 = st.columns([2, 1, 0.5])
-        with col_c1:
-            kw_text = st.text_input(f"追加キーワード", key=f"custom_kw_{row_id}")
-        with col_c2:
-            cat_select = st.selectbox(f"分野", CATEGORY_LIST, key=f"custom_cat_{row_id}")
-        with col_c3:
-            st.write("##")
-            if st.button("－", key=f"del_{row_id}"):
-                remove_row(row_id)
-                st.rerun()
+    if st.button("診断する", type="primary", disabled=target_df.empty): 
+        scores = []
+        for index, row in target_df.iterrows():
+            score = 0
+            b3_themes = set(selected_themes)
+            
+            lab_kws = set()
+            if isinstance(row["キーワードデータ"], list):
+                for kw_tuple in row["キーワードデータ"]:
+                    if len(kw_tuple) >= 1:
+                        lab_kws.add(kw_tuple[0])
+            
+            score += len(b3_themes.intersection(lab_kws)) * 10
+            scores.append(score)
+            
+        result_df = target_df.copy()
+        result_df["Match_Score"] = scores
+        result_df = result_df.sort_values(by="Match_Score", ascending=False)
+
+        st.subheader("診断結果")
         
-        if kw_text.strip():
-            selected_kw_pairs.append((kw_text.strip(), cat_select))
-
-    if st.button("＋ 欄を追加", key="add_kw"):
-        st.session_state.custom_kw_ids.append(st.session_state.next_kw_id)
-        st.session_state.next_kw_id += 1
-        st.rerun()
-
-    st.markdown("---")
-
-    st.header("3. 研究室のカルチャー・雰囲気 (5段階評価)")
-    st.write("研究室のスタイルに近いものを選んでください．")
-    
-    q1 = st.radio("■ 実験か解析か (1: 実験メイン ⇔ 5: 解析・シミュレーションメイン)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q2 = st.radio("■ スケジュール・拘束度 (1: 学生の自主性に任せられる ⇔ 5: 研究室側によるスケジュール管理が手厚い)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q3 = st.radio("■ サポート体制 (1: 教授の手厚い指導 ⇔ 5: 先輩を中心とした学生間のサポート)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q4 = st.radio("■ 研究アプローチ (1: 基礎原理の解明・理学寄り ⇔ 5: 社会実装・モノづくり・工学寄り)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q5 = st.radio("■ 研究室の雰囲気 (1: 和気あいあい・カジュアル ⇔ 5: 規律や礼儀を重んじる・フォーマル)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q6 = st.radio("■ 研究の進め方 (1: 個人作業が中心 ⇔ 5: チームでの共同作業が中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-
-    st.markdown("---")
-    
-    st.header("4. 研究室の関連URLの登録（任意）")
-    st.write("B3向けに案内したい研究室の公式HPや，関連するURLを入力してください．")
-    official_url = st.text_input("■ 公式HPのURL（任意）")
-    related_url_1 = st.text_input("■ 関連URL 1（任意）")
-    related_url_2 = st.text_input("■ 関連URL 2（任意）")
-    
-    st.markdown("---")
-
-    if st.button("この内容で登録する", type="primary"):
-        if lab_name == "選択してください" or len(fields) == 0:
-            st.error("研究室名と分野は必須項目です．")
-        elif not selected_kw_pairs:
-            st.error("少なくとも1つのキーワードを選択または入力してください．")
+        st.info("💡 【参考】機械工学科の公式ページも確認してみましょう\n\n[学科公式HP 研究室一覧はこちら](https://www.rs.tus.ac.jp/me/laboratory.html)")
+        
+        if len(selected_themes) == 0:
+            for index, row in result_df.iterrows():
+                display_lab_details(row)
         else:
-            final_kw_data = list(set(selected_kw_pairs))
-            data_to_save = {
-                "Lab_ID": f"{ROMAJI_DICT[lab_name]}",
-                "研究室名": lab_name,
-                "分野": str(fields),
-                "キーワードデータ": str(final_kw_data),
-                "公式HP": official_url.strip(),
-                "関連URL1": related_url_1.strip(),
-                "関連URL2": related_url_2.strip(),
-                "eval_1": str(q1),
-                "eval_2": str(q2),
-                "eval_3": str(q3),
-                "eval_4": str(q4),
-                "eval_5": str(q5),
-                "eval_6": str(q6)
-            }
-            save_data(data_to_save)
-            st.success(f"「{lab_name}」のデータを登録しました！")
+            recommended_df = result_df[result_df["Match_Score"] > 0]
+            st.write("### おすすめの研究室")
+            if recommended_df.empty:
+                st.info("条件に一致する研究室はありませんでした．")
+            else:
+                for index, row in recommended_df.iterrows():
+                    display_lab_details(row)
+            
+            others_df = result_df[result_df["Match_Score"] == 0]
+            if not others_df.empty:
+                st.markdown("---")
+                st.write("### その他の研究室")
+                for index, row in others_df.iterrows():
+                    display_lab_details(row)
 
 if __name__ == "__main__":
     main()
