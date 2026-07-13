@@ -88,27 +88,42 @@ def display_lab_details(row):
             for cat, kws in grouped.items():
                 st.write(f"・<u>{cat}</u>: {', '.join(kws)}", unsafe_allow_html=True)
 
-        # カルチャー・雰囲気の表示
+        # カルチャー・雰囲気の表示（レイアウトを大幅に改善）
         if row.get('eval_1'):
             st.write("")
             st.write("【カルチャー・雰囲気】")
             
-            def get_indicator(val):
+            def make_eval_row(left_text, val, right_text):
                 try:
                     v = int(val)
-                    boxes = ["□", "□", "□", "□", "□"]
+                    # 選択されていない□を少し暗くして視認性を高める
+                    boxes = ["<span style='color: rgba(128,128,128,0.4);'>□</span>"] * 5
                     if 1 <= v <= 5:
-                        boxes[v-1] = '<span style="color: #4ade80;">■</span>'
-                    return " ".join(boxes)
+                        boxes[v-1] = '<span style="color: #4ade80; font-size: 1.1em;">■</span>'
+                    indicator = "&nbsp;&nbsp;".join(boxes)
                 except:
-                    return "□ □ □ □ □"
-            
-            st.markdown(f"・ 実験メイン {get_indicator(row['eval_1'])} 解析メイン", unsafe_allow_html=True)
-            st.markdown(f"・ 学生の自主性に任せる {get_indicator(row['eval_2'])} スケジュール管理が手厚い", unsafe_allow_html=True)
-            st.markdown(f"・ 教授指導 {get_indicator(row['eval_3'])} 学生間のサポート中心", unsafe_allow_html=True)
-            st.markdown(f"・ 基礎原理の解明(理学) {get_indicator(row['eval_4'])} 社会実装・開発(工学)", unsafe_allow_html=True)
-            st.markdown(f"・ 和気あいあい(カジュアル) {get_indicator(row['eval_5'])} 規律・礼儀重視(フォーマル)", unsafe_allow_html=True)
-            st.markdown(f"・ 個人作業が中心 {get_indicator(row['eval_6'])} チーム共同作業が中心", unsafe_allow_html=True)
+                    indicator = "&nbsp;&nbsp;".join(["<span style='color: rgba(128,128,128,0.4);'>□</span>"] * 5)
+                
+                # Flexboxを使用して左右のテキスト長さに依存せず中央の□を完璧に縦揃えする
+                return f"""
+                <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                    <div style="flex: 1; text-align: right; padding-right: 15px; font-size: 0.95em;">{left_text}</div>
+                    <div style="flex: 0 0 auto; font-size: 1.2em; letter-spacing: 1px;">{indicator}</div>
+                    <div style="flex: 1; text-align: left; padding-left: 15px; font-size: 0.95em;">{right_text}</div>
+                </div>
+                """
+
+            eval_html = f"""
+            <div style="background-color: rgba(128, 128, 128, 0.1); padding: 15px 10px 10px 10px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;">
+                {make_eval_row("実験メイン", row.get('eval_1'), "解析メイン")}
+                {make_eval_row("学生の自主性に任せる", row.get('eval_2'), "スケジュール管理が手厚い")}
+                {make_eval_row("教授指導", row.get('eval_3'), "学生間のサポート中心")}
+                {make_eval_row("基礎原理の解明(理学)", row.get('eval_4'), "社会実装・開発(工学)")}
+                {make_eval_row("和気あいあい(カジュアル)", row.get('eval_5'), "規律・礼儀重視(フォーマル)")}
+                {make_eval_row("個人作業が中心", row.get('eval_6'), "チーム共同作業が中心")}
+            </div>
+            """
+            st.markdown(eval_html, unsafe_allow_html=True)
 
             st.write("")
                 
