@@ -5,7 +5,6 @@ import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# 研究室のURLリスト（初期値）
 LAB_URLS = {
     "上野研究室": {"公式HP": "https://www.rs.tus.ac.jp/ueno_lab/index.html", "関連URL": "https://dept.tus.ac.jp/st/souiki-journal/6754/"},
     "塚原研究室": {"公式HP": "https://www.rs.tus.ac.jp/~t2lab/index-j.html", "関連URL": "https://www.jsme-fed.org/laboratories/2023_12/001.html"},
@@ -21,13 +20,12 @@ LAB_URLS = {
     "朝倉研究室": {"公式HP": "https://asakura-lab.labby.jp/"}
 }
 
-# Ｂ３の画面上で表示するキーワードの理想的な並び順
 PREDEFINED_KEYWORDS = {
     "流体・熱・エネルギー": [
         "流体力学", "流体", "熱流体", "ナビエ・ストークス方程式", "無次元化", 
         "層流", "乱流", "低Re数", "高レイノルズ数流れ", "流れの遷移", "複雑な流れ現象", "亜音速", "粘弾性流体", "境界層", 
         "伝熱", "沸騰現象", "気液混相流", "表面張力", "濡れ現象", "マランゴニ対流", 
-        "マイクロ流路", "熱交換器", "エネルギー効率", "プラントのガス漏洩検知"
+        "マイクロ流路", "熱交換器", "エネルギー効率", "プラントのガス漏洩検知", "拡散源推定"
     ],
     "航空・宇宙": [
         "航空機", "航空機設計", "航空機翼", "翼の空力設計", "翼の最適化設計", "風洞実験", "離陸飛行実験", 
@@ -37,35 +35,39 @@ PREDEFINED_KEYWORDS = {
     "材料・構造・固体力学": [
         "材料力学", "連続体力学", "弾塑性力学", "損傷力学", "材料強度学", "破壊力学", "非線形破壊力学", "強度評価", 
         "疲労", "繰り返し荷重", "亀裂進展", "J積分", "コンプライアンス", 
-        "引張試験", "衝撃強度試験", "DCB試験", "破面観察", "走査電子顕微鏡", 
-        "複合材料", "CFRP", "リサイクルCFRP", "GFRP", "セラミックス", "フラン樹脂", "ダイヤモンド", 
+        "引張試験", "曲げ試験", "衝撃強度試験", "DCB試験", "破面観察", "走査電子顕微鏡", 
+        "複合材料", "CFRP", "炭素繊維・連続繊維", "知的材料・構造", "リサイクルCFRP", "GFRP", "VARTM", "セラミックス", "フラン樹脂", "ダイヤモンド", 
         "溶接", "成膜", "銅メッキ", "白金触媒", "プラズマ照射"
     ],
     "ロボティクス・制御・機械要素": [
-        "ロボット", "ロボットアーム", "人工筋肉", "自動化", "モーションキャプチャ", "センサ", 
+        "ロボティクス", "ロボット", "産業用ロボット", "協働ロボット(UR等)", "ロボットアーム", "ロボットマニピュレーション", 
+        "ロボット制御", "人工筋肉", "自動化", "モーションキャプチャ", "センサ", 
         "ドローン", "小型ロボットヘリコプター", "マイクロ航空機", "羽ばたき", "自立飛行", "飛行制御", 
-        "ロバスト制御", "設計", 
-        "ギア", "電子工作", "MEMS", "レーザー加工", "流量計開発・評価"
+        "ロバスト制御", "設計", "ロボットビジョン", "ビジュアルサーボ",
+        "ギア", "電子工作", "MEMS", "レーザー加工", "流量計開発・評価",
+        "振動工学", "音響工学", "警告音設計(自転車等)", "自動車への応用"
     ],
     "解析・シミュレーション・情報": [
-        "数値解析", "CFD解析", "CAE", "有限要素法", "IGA", "FPM", "重合メッシュ法", "領域積分法", "サンプリングモアレ法", "marc", "解析手法構築", 
-        "フーリエ解析", "テンソル解析", "統計", "情報理論・データサイエンス", 
-        "人工知能", "機械学習", "深層学習・CNN", "強化学習", "画像解析", 
-        "プログラミング", "プログラム実装", "python", "c言語", "fortran", "MATLAB", "Simulink"
+        "数値解析", "CFD解析", "CAE", "分子シミュレーション", "有限要素法", "IGA", "FPM", "重合メッシュ法", "領域積分法", "サンプリングモアレ法", "marc", "解析手法構築", 
+        "フーリエ解析", "テンソル解析", "統計解析", "情報理論・データサイエンス", "最適化",
+        "人工知能", "フィジカルAI", "機械学習", "深層学習・CNN", "強化学習", "画像解析", "画像処理・物体認識", "点群処理",
+        "プログラミング", "プログラム実装", "python", "c言語", "fortran", "MATLAB", "Simulink",
+        "サウンドスケープ評価"
     ],
     "生体・医療・バイオメカニクス": [
         "生体工学", "バイオメカニクス", "生体機械", "生物模倣", "アクティブマター・自己駆動粒子", 
-        "血流・血管の解析", "脳波", "がん細胞", 
-        "人工心臓・人工弁", "内視鏡", "介護支援"
+        "血流・血管の解析", "がん細胞", 
+        "人工心臓・人工弁", "内視鏡", "介護支援", "医療・福祉支援技術",
+        "脳波解析(睡眠・音楽)", "嚥下(えんげ)音解析", "聴力評価(DINテスト)", "病院の音環境"
     ],
     "設備・実験手法・その他ツール": [
         "実験", "実験装置設計", "理学", "共同研究", 
-        "ハイスピードカメラ", "電子顕微鏡", "真空装置", "着磁", "3Dプリンタ", "フォトリソグラフィー", "電気化学", "小型燃料電池", 
-        "Fusion", "VR", "リモート", "Mac", "Claude", "Notion"
+        "ハイスピードカメラ", "電子顕微鏡", "マイクロスコープ", "真空装置", "着磁", "三次元計測", "3Dプリンタ", "フォトリソグラフィー", "電気化学", "小型燃料電池", 
+        "ROS", "Fusion", "リモート", "Mac", "Claude", "Notion",
+        "VR音響評価", "快適性評価(well-being)", "プラント安全設計"
     ]
 }
 
-# 10分間（600秒）データを記憶するキャッシュ機能を追加
 @st.cache_data(ttl=600)
 def load_spreadsheet_data():
     try:
@@ -82,7 +84,6 @@ def load_spreadsheet_data():
         if not records:
             return pd.DataFrame()
             
-        # データ列数の変化に対応（最大13列までパディング）
         padded_records = []
         for r in records:
             while len(r) < 13:
@@ -112,7 +113,6 @@ def load_spreadsheet_data():
         return pd.DataFrame()
 
 def display_lab_details(row):
-    """研究室の詳細を表示する共通関数"""
     lab_name = row['研究室名']
     with st.expander(f"【{lab_name}】 Score: {row['Match_Score']} 👈 タップして詳細を見る"):
         fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
@@ -122,7 +122,6 @@ def display_lab_details(row):
         if isinstance(kw_data, list):
             grouped = {}
             for kw, cat in kw_data:
-                # 古いカテゴリ名が含まれていても「その他」を含む名称に統一する処理
                 if cat in ["実験・設備・その他ツール", "その他・環境・設備", "設備・実験手法・ツール", "設備・実験手法・その他ツール"]:
                     cat = "設備・実験手法・その他ツール"
                 if cat not in grouped:
@@ -133,7 +132,6 @@ def display_lab_details(row):
             for cat, kws in grouped.items():
                 st.write(f"・<u>{cat}</u>: {', '.join(kws)}", unsafe_allow_html=True)
 
-        # カルチャー・雰囲気の表示（レイアウト改善・コードブロック化回避）
         if row.get('eval_1'):
             st.write("")
             st.write("【カルチャー・雰囲気】")
@@ -148,7 +146,6 @@ def display_lab_details(row):
                 except:
                     indicator = "&nbsp;&nbsp;".join(["<span style='color: rgba(128,128,128,0.4);'>□</span>"] * 5)
                 
-                # インデント（スペース）を含めないように文字列を連結
                 return (
                     '<div style="display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">'
                     f'<div style="flex: 1; text-align: right; padding-right: 15px; font-size: 0.95em;">{left_text}</div>'
@@ -157,7 +154,6 @@ def display_lab_details(row):
                     '</div>'
                 )
 
-            # 同じくインデントをなくしてコードブロック化を防ぐ
             eval_html = (
                 '<div style="background-color: rgba(128, 128, 128, 0.1); padding: 15px 10px 10px 10px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;">'
                 + make_eval_row("実験メイン", row.get('eval_1'), "解析メイン")
@@ -172,7 +168,6 @@ def display_lab_details(row):
 
             st.write("")
                 
-        # URLの動的表示処理
         lab_urls_dict = LAB_URLS.get(lab_name, {}).copy()
         
         if pd.notna(row.get('公式HP')) and str(row['公式HP']).strip():
@@ -250,13 +245,10 @@ def main():
         for category in all_categories:
             keywords_set = grouped_keywords[category]
             
-            # 定義済みの順序リストを取得
             preferred_order = PREDEFINED_KEYWORDS.get(category, [])
             
-            # 定義済みリストにあるものを先に抽出し，順序を維持
             sorted_kws = [kw for kw in preferred_order if kw in keywords_set]
             
-            # 定義済みリストにないもの（B4が自由追加したキーワードなど）をアルファベット順にして末尾に追加
             others = sorted([kw for kw in keywords_set if kw not in preferred_order])
             final_kws = sorted_kws + others
 
