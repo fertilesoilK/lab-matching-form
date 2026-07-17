@@ -191,7 +191,6 @@ def main():
     st.markdown("---") 
     st.header("希望条件を入力してください")
     
-    
     target_mode = st.radio("研究室をどの範囲から探しますか？", ["全ての研究室から診断する", "分野を絞って診断する"], label_visibility="collapsed")
     all_fields_set = set()
     for fields_list in df["分野"]:
@@ -300,6 +299,17 @@ def main():
         result_df = result_df.sort_values(by="Match_Score", ascending=False)
 
         st.subheader("診断結果")
+        
+        # --- ここに追加 ---
+        st.info("""
+        **💡 診断の仕組み**
+        あなたが選択したキーワードと、各研究室が登録したキーワードが一致した場合、以下の基準で加点を行っています。
+        ・基本・一般キーワードが一致：30点
+        ・専門・詳細キーワードが一致：10点
+        
+        ※各研究室で登録キーワード数に差があるため、総数が多い研究室ほど点数が高くなる傾向があります。このスコアはあくまで一つの目安ですので、詳細は各研究室のホームページを必ず確認してください。
+        """)
+        # ------------------
         
         st.info("💡 【参考】機械工学科の公式ページも確認してみましょう\n\n<a href='https://www.rs.tus.ac.jp/me/laboratory.html' target='_blank'>学科公式HP 研究室一覧はこちら</a>", icon="ℹ️")
         
