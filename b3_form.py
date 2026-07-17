@@ -225,33 +225,42 @@ def main():
             all_categories.append("設備・実験手法・その他ツール")
 
         selected_themes = []
+
+        # --- 基本・一般キーワードの表示 ---
+        st.markdown("### ■ 基本・一般キーワードから選ぶ")
+        for category in all_categories:
+            keywords_set = grouped_keywords[category]
+            pref_dict = PREDEFINED_KEYWORDS.get(category, {"基本・一般": [], "専門・詳細": []})
+            basic_kws = [kw for kw in pref_dict.get("基本・一般", []) if kw in keywords_set]
+            
+            if basic_kws:
+                st.write(f"▼ 【{category}】")
+                cols = st.columns(3)
+                for i, kw in enumerate(basic_kws):
+                    if cols[i % 3].checkbox(kw, key=f"b3_basic_{category}_{kw}"):
+                        selected_themes.append(kw)
+        st.write("")
+
+        # --- 専門・詳細キーワードの表示 ---
+        st.markdown("### ■ 専門・詳細キーワードから選ぶ")
         for category in all_categories:
             keywords_set = grouped_keywords[category]
             pref_dict = PREDEFINED_KEYWORDS.get(category, {"基本・一般": [], "専門・詳細": []})
             
-            basic_kws = [kw for kw in pref_dict.get("基本・一般", []) if kw in keywords_set]
             adv_kws = [kw for kw in pref_dict.get("専門・詳細", []) if kw in keywords_set]
-            
             known_kws = set(pref_dict.get("基本・一般", [])) | set(pref_dict.get("専門・詳細", []))
             others = sorted([kw for kw in keywords_set if kw not in known_kws])
             
-            st.write(f"▼ 【{category}】")
+            combined_adv = adv_kws + others
             
-            if basic_kws:
-                st.write(" **■ 基本・一般キーワード**")
+            if combined_adv:
+                st.write(f"▼ 【{category}】")
                 cols = st.columns(3)
-                for i, kw in enumerate(basic_kws):
-                    if cols[i % 3].checkbox(kw, key=f"b3_{category}_{kw}"):
+                for i, kw in enumerate(combined_adv):
+                    if cols[i % 3].checkbox(kw, key=f"b3_adv_{category}_{kw}"):
                         selected_themes.append(kw)
-                        
-            if adv_kws or others:
-                st.write(" **■ 専門・詳細キーワード**")
-                cols = st.columns(3)
-                for i, kw in enumerate(adv_kws + others):
-                    if cols[i % 3].checkbox(kw, key=f"b3_{category}_{kw}"):
-                        selected_themes.append(kw)
-                        
-            st.write("")
+        st.write("")
+
     else:
         st.write("※上の選択欄で分野を選ぶと，該当する研究室のキーワードが表示されます．")
         selected_themes = []
