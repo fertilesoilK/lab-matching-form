@@ -101,22 +101,27 @@ def main():
 
     selected_kw_pairs = []
 
+    # --- 基本・一般キーワードの表示 ---
+    st.markdown("### ■ 基本・一般キーワードから選ぶ")
     for category, groups in categorized_keywords.items():
-        st.write(f"▼ 【{category}】")
-        
-        st.write(" **■ 基本・一般キーワード**")
-        cols = st.columns(3)
-        for i, kw in enumerate(groups["基本・一般"]):
-            if cols[i % 3].checkbox(kw, key=f"kw_{kw}"):
-                selected_kw_pairs.append((kw, category))
-                
-        st.write(" **■ 専門・詳細キーワード**")
-        cols = st.columns(3)
-        for i, kw in enumerate(groups["専門・詳細"]):
-            if cols[i % 3].checkbox(kw, key=f"kw_{kw}"):
-                selected_kw_pairs.append((kw, category))
-                
-        st.write("")
+        if groups["基本・一般"]:
+            st.write(f"▼ 【{category}】")
+            cols = st.columns(3)
+            for i, kw in enumerate(groups["基本・一般"]):
+                if cols[i % 3].checkbox(kw, key=f"basic_{category}_{kw}"):
+                    selected_kw_pairs.append((kw, category))
+    st.write("")
+
+    # --- 専門・詳細キーワードの表示 ---
+    st.markdown("### ■ 専門・詳細キーワードから選ぶ")
+    for category, groups in categorized_keywords.items():
+        if groups["専門・詳細"]:
+            st.write(f"▼ 【{category}】")
+            cols = st.columns(3)
+            for i, kw in enumerate(groups["専門・詳細"]):
+                if cols[i % 3].checkbox(kw, key=f"adv_{category}_{kw}"):
+                    selected_kw_pairs.append((kw, category))
+    st.write("")
 
     st.markdown("---")
     st.write("■ 選択肢にないキーワードを追加")
