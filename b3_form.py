@@ -311,7 +311,7 @@ def main():
         """)
         # ------------------
         
-        st.info("💡 【参考】機械工学科の公式ページも確認してみましょう\n\n<a href='https://www.rs.tus.ac.jp/me/laboratory.html' target='_blank'>学科公式HP 研究室一覧はこちら</a>", icon="ℹ️")
+        st.info("💡 【参考】機械工学科の公式ページも確認してみましょう\n\n[学科公式HP 研究室一覧はこちら](https://www.rs.tus.ac.jp/me/laboratory.html)", icon="ℹ️")
         
         if len(selected_themes) == 0:
             for index, row in result_df.iterrows():
