@@ -56,68 +56,271 @@ def load_spreadsheet_data():
     try:
         sheet_id = st.secrets["sheet_id"]
         creds_dict = json.loads(st.secrets["gcp_service_account"])
+        
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
         client = gspread.authorize(creds)
+        
         sheet = client.open_by_key(sheet_id).sheet1
         records = sheet.get_all_values()
-        if not records: return pd.DataFrame()
-        padded_records = [r[:13] + [""]*(13-len(r)) for r in records]
-        df = pd.DataFrame(padded_records, columns=["Lab_ID", "研究室名", "分野", "キーワードデータ", "公式HP", "関連URL1", "関連URL2", "eval_1", "eval_2", "eval_3", "eval_4", "eval_5", "eval_6"])
-        df["分野"] = df["分野"].apply(lambda x: ast.literal_eval(x) if x.startswith('[') else [])
-        df["キーワードデータ"] = df["キーワードデータ"].apply(lambda x: ast.literal_eval(x) if x.startswith('[') else [])
+        
+        if not records:
+            return pd.DataFrame()
+            
+        padded_records = []
+        for r in records:
+            while len(r) < 13:
+                r.append("")
+            padded_records.append(r[:13])
+            
+        df = pd.DataFrame(padded_records, columns=[
+            "Lab_ID", "研究室名", "分野", "キーワードデータ", 
+            "公式HP", "関連URL1", "関連URL2", 
+            "eval_1", "eval_2", "eval_3", "eval_4", "eval_5", "eval_6"
+        ])
+        
+        def safe_eval(val):
+            try:
+                if isinstance(val, str) and val.startswith('['):
+                    return ast.literal_eval(val)
+                return []
+            except:
+                return []
+
+        df["分野"] = df["分野"].apply(safe_eval)
+        df["キーワードデータ"] = df["キーワードデータ"].apply(safe_eval)
+        
         return df
     except Exception as e:
-        st.error(f"スプレッドシートの読み込みエラー: {e}")
+        st.error(f"スプレッドシートの読み込み中にエラーが発生しました: {e}")
         return pd.DataFrame()
 
 def display_lab_details(row):
-    with st.expander(f"【{row['研究室名']}】 Score: {row['Match_Score']}"):
-        st.write(f"【分野】 {'，'.join(row['分野'])}")
+    lab_name = row['研究室名']
+    with st.expander(f"【{lab_name}】 Score: {row['Match_Score']} 👈 タップして詳細を見る"):
+        fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
+        st.write(f"【分野】 {fields_str}")
+        
         kw_data = row['キーワードデータ']
         if isinstance(kw_data, list):
             grouped = {}
             for kw, cat in kw_data:
-                cat = "設備・実験手法・その他ツール" if "ツール" in cat or "実験" in cat else cat
-                grouped.setdefault(cat, []).append(kw)
+                if cat in ["実験・設備・その他ツール", "その他・環境・設備", "設備・実験手法・ツール", "設備・実験手法・その他ツール"]:
+                    cat = "設備・実験手法・その他ツール"
+                if cat not in grouped:
+                    grouped[cat] = []
+                grouped[cat].append(kw)
+            
             st.write("【関連キーワード】")
             for cat, kws in grouped.items():
                 st.write(f"・<u>{cat}</u>: {', '.join(kws)}", unsafe_allow_html=True)
-        # (評価やリンク表示処理は前回と同様のため省略)
+
+        if row.get('eval_1'):
+            st.write("")
+            st.write("【カルチャー・雰囲気】")
+            
+            def make_eval_row(left_text, val, right_text):
+                try:
+                    v = int(val)
+                    boxes = ["<span style='color: rgba(128,128,128,0.4);'>□</span>"] * 5
+                    if 1 <= v <= 5:
+                        boxes[v-1] = '<span style="color: #4ade80; font-size: 1.1em;">■</span>'
+                    indicator = "&nbsp;&nbsp;".join(boxes)
+                except:
+                    indicator = "&nbsp;&nbsp;".join(["<span style='color: rgba(128,128,128,0.4);'>□</span>"] * 5)
+                
+                return (
+                    '<div style="display: flex; align-items: center; justify-content: center; margin-bottom: 8px;">'
+                    f'<div style="flex: 1; text-align: right; padding-right: 15px; font-size: 0.95em;">{left_text}</div>'
+                    f'<div style="flex: 0 0 auto; font-size: 1.2em; letter-spacing: 1px;">{indicator}</div>'
+                    f'<div style="flex: 1; text-align: left; padding-left: 15px; font-size: 0.95em;">{right_text}</div>'
+                    '</div>'
+                )
+
+            eval_html = (
+                '<div style="background-color: rgba(128, 128, 128, 0.1); padding: 15px 10px 10px 10px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;">'
+                + make_eval_row("実験メイン", row.get('eval_1'), "解析メイン")
+                + make_eval_row("学生の自主性に任せる", row.get('eval_2'), "スケジュール管理が手厚い")
+                + make_eval_row("教授指導", row.get('eval_3'), "学生間のサポート中心")
+                + make_eval_row("基礎原理の解明(理学)", row.get('eval_4'), "社会実装・開発(工学)")
+                + make_eval_row("和気あいあい(カジュアル)", row.get('eval_5'), "規律・礼儀重視(フォーマル)")
+                + make_eval_row("個人作業が中心", row.get('eval_6'), "チーム共同作業が中心")
+                + '</div>'
+            )
+            st.markdown(eval_html, unsafe_allow_html=True)
+
+            st.write("")
+                
+        lab_urls_dict = LAB_URLS.get(lab_name, {}).copy()
+        
+        if pd.notna(row.get('公式HP')) and str(row['公式HP']).strip():
+            lab_urls_dict["公式HP"] = str(row['公式HP']).strip()
+        if pd.notna(row.get('関連URL1')) and str(row['関連URL1']).strip():
+            lab_urls_dict["関連URL 1"] = str(row['関連URL1']).strip()
+        if pd.notna(row.get('関連URL2')) and str(row['関連URL2']).strip():
+            lab_urls_dict["関連URL 2"] = str(row['関連URL2']).strip()
+            
+        valid_links = []
+        for title, url in lab_urls_dict.items():
+            if url.strip():
+                valid_links.append(f'<a href="{url}" target="_blank">{title}</a>')
+                
+        if valid_links:
+            st.write(f"【関連リンク】 {' / '.join(valid_links)}", unsafe_allow_html=True)
+        else:
+            st.write("【関連リンク】 (URL未設定)")
 
 def main():
     st.set_page_config(page_title="ME研究室マッチング", layout="wide")
+    
+    st.markdown("""
+    <style>
+    div[data-testid="stCheckbox"] input[type="checkbox"] { transform: scale(1.3); }
+    div[data-testid="stCheckbox"] label { font-size: 1.05em; margin-left: 5px; }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.title("ME研究室マッチングシステム")
+    st.write("Ｂ４の先輩たちのデータをもとに，あなたの研究室選びをサポートします．非公式なサイトのため，情報を鵜呑みにしないようにしましょう．詳細は各研究室に問い合わせることをおすすめします．")
+
     df = load_spreadsheet_data()
-    if df.empty: return
+    if df.empty:
+        st.warning("研究室のデータが見つかりません．スプレッドシートにデータが登録されているか確認してください．")
+        return
 
-    # キーワード選択 UI
-    selected_themes = []
-    # ... (キーワード選択のUIロジックは前回と同様) ...
+    st.markdown("---") 
+    st.header("希望条件を入力してください")
+    
+    
+    target_mode = st.radio("研究室をどの範囲から探しますか？", ["全ての研究室から診断する", "分野を絞って診断する"], label_visibility="collapsed")
+    all_fields_set = set()
+    for fields_list in df["分野"]:
+        if isinstance(fields_list, list): all_fields_set.update(fields_list)
+    available_fields = sorted(list(all_fields_set))
 
-    if st.button("診断する", type="primary"): 
-        all_basic_kws = {kw for cat in PREDEFINED_KEYWORDS.values() for kw in cat.get("基本・一般", [])}
+    if target_mode == "分野を絞って診断する":
+        selected_fields = st.multiselect("診断したい分野を選択してください（複数可）", available_fields)
+        target_df = df[df["分野"].apply(lambda x: any(field in x for field in selected_fields))] if selected_fields else pd.DataFrame(columns=df.columns)
+    else:
+        target_df = df
+
+    st.write("") 
+    st.write("■ 気になるキーワードを選択（複数可）")
+    
+    if not target_df.empty:
+        grouped_keywords = {}
+        for kw_list in target_df["キーワードデータ"]:
+            if isinstance(kw_list, list):
+                for kw_tuple in kw_list:
+                    if len(kw_tuple) >= 2:
+                        kw, cat = kw_tuple[0], kw_tuple[1]
+                        if cat in ["実験・設備・その他ツール", "その他・環境・設備", "設備・実験手法・ツール", "設備・実験手法・その他ツール"]:
+                            cat = "設備・実験手法・その他ツール"
+                        
+                        if cat not in grouped_keywords: grouped_keywords[cat] = set()
+                        grouped_keywords[cat].add(kw)
+
+        all_categories = sorted(list(grouped_keywords.keys()))
+        if "設備・実験手法・その他ツール" in all_categories:
+            all_categories.remove("設備・実験手法・その他ツール")
+            all_categories.append("設備・実験手法・その他ツール")
+
+        selected_themes = []
+
+        # --- 基本・一般キーワードの表示 ---
+        st.markdown("### ■ 基本・一般キーワードから選ぶ")
+        for category in all_categories:
+            keywords_set = grouped_keywords[category]
+            pref_dict = PREDEFINED_KEYWORDS.get(category, {"基本・一般": [], "専門・詳細": []})
+            basic_kws = [kw for kw in pref_dict.get("基本・一般", []) if kw in keywords_set]
+            
+            if basic_kws:
+                st.write(f"▼ 【{category}】")
+                cols = st.columns(3)
+                for i, kw in enumerate(basic_kws):
+                    if cols[i % 3].checkbox(kw, key=f"b3_basic_{category}_{kw}"):
+                        selected_themes.append(kw)
+        st.write("")
+
+        # --- 専門・詳細キーワードの表示 ---
+        st.markdown("### ■ 専門・詳細キーワードから選ぶ")
+        for category in all_categories:
+            keywords_set = grouped_keywords[category]
+            pref_dict = PREDEFINED_KEYWORDS.get(category, {"基本・一般": [], "専門・詳細": []})
+            
+            adv_kws = [kw for kw in pref_dict.get("専門・詳細", []) if kw in keywords_set]
+            known_kws = set(pref_dict.get("基本・一般", [])) | set(pref_dict.get("専門・詳細", []))
+            others = sorted([kw for kw in keywords_set if kw not in known_kws])
+            
+            combined_adv = adv_kws + others
+            
+            if combined_adv:
+                st.write(f"▼ 【{category}】")
+                cols = st.columns(3)
+                for i, kw in enumerate(combined_adv):
+                    if cols[i % 3].checkbox(kw, key=f"b3_adv_{category}_{kw}"):
+                        selected_themes.append(kw)
+        st.write("")
+
+    else:
+        st.write("※上の選択欄で分野を選ぶと，該当する研究室のキーワードが表示されます．")
+        selected_themes = []
+
+    st.markdown("---") 
+
+    if st.button("診断する", type="primary", disabled=target_df.empty): 
+        # 全ての基本・一般キーワードをセットにまとめる
+        all_basic_kws = set()
+        for category, groups in PREDEFINED_KEYWORDS.items():
+            all_basic_kws.update(groups.get("基本・一般", []))
+
         scores = []
-        for _, row in df.iterrows():
-            lab_kws = {kw[0] for kw in row["キーワードデータ"]} if isinstance(row["キーワードデータ"], list) else set()
-            score = sum(30 if kw in all_basic_kws else 10 for kw in set(selected_themes) if kw in lab_kws)
+        for index, row in target_df.iterrows():
+            score = 0
+            b3_themes = set(selected_themes)
+            
+            lab_kws = set()
+            if isinstance(row["キーワードデータ"], list):
+                for kw_tuple in row["キーワードデータ"]:
+                    if len(kw_tuple) >= 1:
+                        lab_kws.add(kw_tuple[0])
+            
+            # 一致したキーワードを取り出し，基本なら30点，専門なら10点を加算
+            matched_kws = b3_themes.intersection(lab_kws)
+            for kw in matched_kws:
+                if kw in all_basic_kws:
+                    score += 30
+                else:
+                    score += 10
+                    
             scores.append(score)
-        
-        df["Match_Score"] = scores
-        df = df.sort_values(by="Match_Score", ascending=False)
+            
+        result_df = target_df.copy()
+        result_df["Match_Score"] = scores
+        result_df = result_df.sort_values(by="Match_Score", ascending=False)
 
         st.subheader("診断結果")
-        st.info("""
-        **💡 診断の仕組み**
-        あなたが選択したキーワードと、各研究室が登録したキーワードが一致した場合、以下の基準で加点を行っています。
-        ・基本・一般キーワード：30点
-        ・専門・詳細キーワード：10点
         
-        ※各研究室で登録キーワード数に差があるため、総数が多い研究室ほど点数が高くなる傾向があります。このスコアはあくまで一つの目安ですので、詳細は各研究室のホームページを必ず確認してください。
-        """)
+        st.info("💡 【参考】機械工学科の公式ページも確認してみましょう\n\n<a href='https://www.rs.tus.ac.jp/me/laboratory.html' target='_blank'>学科公式HP 研究室一覧はこちら</a>", icon="ℹ️")
         
-        for _, row in df[df["Match_Score"] > 0].iterrows():
-            display_lab_details(row)
+        if len(selected_themes) == 0:
+            for index, row in result_df.iterrows():
+                display_lab_details(row)
+        else:
+            recommended_df = result_df[result_df["Match_Score"] > 0]
+            st.write("### おすすめの研究室")
+            if recommended_df.empty:
+                st.info("条件に一致する研究室はありませんでした．")
+            else:
+                for index, row in recommended_df.iterrows():
+                    display_lab_details(row)
+            
+            others_df = result_df[result_df["Match_Score"] == 0]
+            if not others_df.empty:
+                st.markdown("---")
+                st.write("### その他の研究室")
+                for index, row in others_df.iterrows():
+                    display_lab_details(row)
 
 if __name__ == "__main__":
     main()
