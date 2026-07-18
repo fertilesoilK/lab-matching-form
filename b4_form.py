@@ -37,7 +37,7 @@ def save_data(data_dict):
         data_dict.get("eval_2", ""),
         data_dict.get("eval_3", ""),
         data_dict.get("eval_4", ""),
-        data_dict.get("eval_5", ""),
+        "", # eval_5は削除のため空文字
         data_dict.get("eval_6", "")
     ]
     sheet.append_row(row_values)
@@ -108,8 +108,9 @@ def main():
             st.write(f"▼ 【{category}】")
             cols = st.columns(3)
             for i, kw in enumerate(groups["主要"]):
+                # 属性「主要」を明記
                 if cols[i % 3].checkbox(kw, key=f"main_{category}_{kw}"):
-                    selected_kw_pairs.append((kw, category))
+                    selected_kw_pairs.append((kw, category, "主要"))
     st.write("")
 
     # --- 専門・詳細キーワードの表示 ---
@@ -119,8 +120,9 @@ def main():
             st.write(f"▼ 【{category}】")
             cols = st.columns(3)
             for i, kw in enumerate(groups["専門・詳細"]):
+                # 属性「専門」を明記
                 if cols[i % 3].checkbox(kw, key=f"adv_{category}_{kw}"):
-                    selected_kw_pairs.append((kw, category))
+                    selected_kw_pairs.append((kw, category, "専門"))
     st.write("")
 
     st.markdown("---")
@@ -146,7 +148,8 @@ def main():
                 st.rerun()
         
         if kw_text.strip():
-            selected_kw_pairs.append((kw_text.strip(), cat_select))
+            # 追加キーワードもデフォルトで「専門」扱いとする
+            selected_kw_pairs.append((kw_text.strip(), cat_select, "専門"))
 
     if st.button("＋ 欄を追加", key="add_kw"):
         st.session_state.custom_kw_ids.append(st.session_state.next_kw_id)
@@ -193,7 +196,6 @@ def main():
                 "eval_2": str(q2),
                 "eval_3": str(q3),
                 "eval_4": str(q4),
-                "eval_5": "",
                 "eval_6": str(q6)
             }
             save_data(data_to_save)
