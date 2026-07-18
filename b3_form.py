@@ -139,12 +139,11 @@ def display_lab_details(row):
 
             eval_html = (
                 '<div style="background-color: rgba(128, 128, 128, 0.1); padding: 15px 10px 10px 10px; border-radius: 8px; margin-top: 5px; margin-bottom: 10px;">'
-                + make_eval_row("実験メイン", row.get('eval_1'), "解析メイン")
-                + make_eval_row("学生の自主性に任せる", row.get('eval_2'), "スケジュール管理が手厚い")
-                + make_eval_row("教授指導", row.get('eval_3'), "学生間のサポート中心")
-                + make_eval_row("基礎原理の解明(理学)", row.get('eval_4'), "社会実装・開発(工学)")
-                + make_eval_row("和気あいあい(カジュアル)", row.get('eval_5'), "規律・礼儀重視(フォーマル)")
-                + make_eval_row("個人作業が中心", row.get('eval_6'), "チーム共同作業が中心")
+                + make_eval_row("実験中心", row.get('eval_1'), "解析・計算中心")
+                + make_eval_row("自主性重視", row.get('eval_2'), "進捗管理あり")
+                + make_eval_row("教授指導", row.get('eval_3'), "学生間サポート")
+                + make_eval_row("理学(原理解明)", row.get('eval_4'), "工学(社会実装)")
+                + make_eval_row("個人作業中心", row.get('eval_6'), "チーム作業中心")
                 + '</div>'
             )
             st.markdown(eval_html, unsafe_allow_html=True)

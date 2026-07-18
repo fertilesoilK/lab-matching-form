@@ -158,12 +158,11 @@ def main():
     st.header("3. 研究室のカルチャー・雰囲気 (5段階評価)")
     st.write("研究室のスタイルに近いものを選んでください．")
     
-    q1 = st.radio("■ 実験か解析か (1: 実験メイン ⇔ 5: 解析・シミュレーションメイン)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q2 = st.radio("■ スケジュール・拘束度 (1: 学生の自主性に任せられる ⇔ 5: 研究室側によるスケジュール管理が手厚い)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q3 = st.radio("■ サポート体制 (1: 教授の手厚い指導 ⇔ 5: 先輩を中心とした学生間のサポート)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q4 = st.radio("■ 研究アプローチ (1: 基礎原理の解明・理学寄り ⇔ 5: 社会実装・モノづくり・工学寄り)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q5 = st.radio("■ 研究室の雰囲気 (1: 和気あいあい・カジュアル ⇔ 5: 規律や礼儀を重んじる・フォーマル)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q6 = st.radio("■ 研究の進め方 (1: 個人作業が中心 ⇔ 5: チームでの共同作業が中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    q1 = st.radio("■ 実験か解析か (1: 実験中心 ⇔ 5: 解析・計算中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    q2 = st.radio("■ スケジュール・拘束度 (1: 自主性重視 ⇔ 5: 進捗管理あり)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    q3 = st.radio("■ サポート体制 (1: 教授指導 ⇔ 5: 学生間サポート)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    q4 = st.radio("■ 研究アプローチ (1: 理学(原理解明) ⇔ 5: 工学(社会実装))", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    q6 = st.radio("■ 研究の進め方 (1: 個人作業中心 ⇔ 5: チーム作業中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
 
     st.markdown("---")
     
@@ -194,7 +193,7 @@ def main():
                 "eval_2": str(q2),
                 "eval_3": str(q3),
                 "eval_4": str(q4),
-                "eval_5": str(q5),
+                "eval_5": "",
                 "eval_6": str(q6)
             }
             save_data(data_to_save)
