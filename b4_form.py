@@ -28,7 +28,6 @@ def save_data(data_dict):
     
     sheet = client.open_by_key(sheet_id).sheet1
     
-    # 既存の13項目に加え、コアタイム関連の3項目を末尾に追加
     row_values = [
         data_dict["Lab_ID"],
         data_dict["研究室名"],
@@ -50,30 +49,51 @@ def save_data(data_dict):
     sheet.append_row(row_values)
 
 def main():
+    # スマホで見やすくするためレイアウトをcentered（中央揃え）に設定
+    st.set_page_config(page_title="【B4向け】研究室情報登録フォーム", layout="centered")
+
+    # B3サイトに合わせたCSSカスタムスタイル
     st.markdown("""
     <style>
+    /* チェックボックスを少し大きく押しやすく */
     div[data-testid="stCheckbox"] input[type="checkbox"] {
-        transform: scale(1.5);
+        transform: scale(1.3);
     }
     div[data-testid="stCheckbox"] label {
-        font-size: 1.1em;
-        margin-left: 8px;
+        font-size: 1.05em;
+        margin-left: 5px;
+    }
+    /* 5段階評価のラジオボタンを中央揃え＆背景デザイン */
+    div[role="radiogroup"] {
+        justify-content: center;
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 8px;
+    }
+    /* セクション見出しのデザイン */
+    .section-header {
+        background-color: #e6f7ff;
+        padding: 10px 15px;
+        border-radius: 5px;
+        border-left: 5px solid #0056b3;
+        font-weight: bold;
+        color: #0056b3;
+        margin-top: 35px;
+        margin-bottom: 20px;
+        font-size: 1.2em;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    st.set_page_config(page_title="【B4向け】研究室情報登録フォーム", layout="wide")
     st.title("B4向け研究室情報 登録フォーム")
-    st.write("必要不可欠な単語を除き，できる限りB3が理解可能な単語を入力してください．選んだキーワードがそのままB3のもとへ届きます．選択肢以上に適切なキーワードがある場合は，該当する選択肢にチェックは入れず，「選択肢にないワードを追加」の欄でキーワードを追加してください．")
+    st.info("💡 **登録のコツ**\n必要不可欠な単語を除き，できる限りB3が直感的に理解可能な単語を入力してください．ここで選んだキーワードや評価スタイルが，そのままB3の診断画面に反映されます．")
 
-    st.markdown("---")
-
-    st.header("1. 基本情報")
+    st.markdown('<div class="section-header">1. 基本情報</div>', unsafe_allow_html=True)
     lab_name = st.selectbox("■ 研究室名", ["選択してください"] + list(ROMAJI_DICT.keys()))
     fields = st.multiselect("■ 研究室全体の分野（複数選択可）", ["熱", "流体", "材料", "制御", "振動学"])
 
-    st.markdown("---")
-    st.header("2. 研究キーワードの登録")
+    st.markdown('<div class="section-header">2. 研究キーワードの登録</div>', unsafe_allow_html=True)
+    st.write("該当するカテゴリをタップして開き，研究室に当てはまるキーワードにチェックを入れてください．")
     
     categorized_keywords = {
         "流体工学": {
@@ -132,28 +152,26 @@ def main():
 
     selected_kw_pairs = []
 
-    st.markdown("### ■ 主要キーワードから選ぶ")
+    # カテゴリごとに開閉できるアコーディオンUIに変更
     for category, groups in categorized_keywords.items():
-        if groups["主要"]:
-            st.write(f"▼ 【{category}】")
-            cols = st.columns(3)
-            for i, kw in enumerate(groups["主要"]):
-                if cols[i % 3].checkbox(kw, key=f"main_{category}_{kw}"):
-                    selected_kw_pairs.append((kw, category, "主要"))
-    st.write("")
+        with st.expander(f"▼ 【{category}】"):
+            if groups["主要"]:
+                st.markdown("**■ 主要キーワード**")
+                cols = st.columns(3)
+                for i, kw in enumerate(groups["主要"]):
+                    if cols[i % 3].checkbox(kw, key=f"main_{category}_{kw}"):
+                        selected_kw_pairs.append((kw, category, "主要"))
+            
+            if groups["専門・詳細"]:
+                st.markdown("<br>**■ 専門・詳細キーワード**", unsafe_allow_html=True)
+                cols = st.columns(3)
+                for i, kw in enumerate(groups["専門・詳細"]):
+                    if cols[i % 3].checkbox(kw, key=f"adv_{category}_{kw}"):
+                        selected_kw_pairs.append((kw, category, "専門"))
 
-    st.markdown("### ■ 専門・詳細キーワードから選ぶ")
-    for category, groups in categorized_keywords.items():
-        if groups["専門・詳細"]:
-            st.write(f"▼ 【{category}】")
-            cols = st.columns(3)
-            for i, kw in enumerate(groups["専門・詳細"]):
-                if cols[i % 3].checkbox(kw, key=f"adv_{category}_{kw}"):
-                    selected_kw_pairs.append((kw, category, "専門"))
-    st.write("")
-
-    st.markdown("---")
+    st.write("---")
     st.write("■ 選択肢にないキーワードを追加")
+    st.caption("※ 上記の中に適当なキーワードがない場合のみ追加してください．")
 
     if "custom_kw_ids" not in st.session_state:
         st.session_state.custom_kw_ids = [0]
@@ -182,21 +200,22 @@ def main():
         st.session_state.next_kw_id += 1
         st.rerun()
 
-    st.markdown("---")
-
-    st.header("3. 研究室のカルチャー・雰囲気 (5段階評価)")
-    st.write("研究室のスタイルに近いものを選んでください．")
+    st.markdown('<div class="section-header">3. 研究室のカルチャー・雰囲気 (5段階評価)</div>', unsafe_allow_html=True)
+    st.write("研究室の実際のスタイルに最も近いものを 1〜5 の中で選んでください．")
     
-    q1 = st.radio("■ 実験か解析か (1: 実験中心 ⇔ 5: 解析・計算中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q2 = st.radio("■ スケジュール・拘束度 (1: 自主性重視 ⇔ 5: 進捗管理あり)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q3 = st.radio("■ サポート体制 (1: 教授指導 ⇔ 5: 学生間サポート)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q4 = st.radio("■ 研究アプローチ (1: 理学(原理解明) ⇔ 5: 工学(社会実装))", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q5 = st.radio("■ 研究室の雰囲気 (1: にぎやか ⇔ 5: 落ち着いた)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
-    q6 = st.radio("■ 研究の進め方 (1: 個人作業中心 ⇔ 5: チーム作業中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    # 2段レイアウトで表示するためのヘルパー関数
+    def render_scale_question(left, right, key):
+        st.markdown(f'<div style="text-align: center; font-weight: bold; color: #333; font-size: 1.05em; margin-top: 15px; margin-bottom: -10px;">{left} ⇔ {right}</div>', unsafe_allow_html=True)
+        return st.radio(key, options=[1, 2, 3, 4, 5], index=2, horizontal=True, label_visibility="collapsed")
 
-    st.markdown("---")
-    
-    st.header("4. コアタイムについて")
+    q1 = render_scale_question("実験中心", "解析・計算中心", "q1")
+    q2 = render_scale_question("自主性重視", "進捗管理あり", "q2")
+    q3 = render_scale_question("教授指導", "学生間サポート", "q3")
+    q4 = render_scale_question("理学(原理解明)", "工学(社会実装)", "q4")
+    q5 = render_scale_question("にぎやか", "落ち着いた", "q5")
+    q6 = render_scale_question("個人作業中心", "チーム作業中心", "q6")
+
+    st.markdown('<div class="section-header">4. コアタイムについて</div>', unsafe_allow_html=True)
     has_core_time = st.radio("■ コアタイムはありますか？", ["なし", "あり"], horizontal=True)
     
     core_start_str = ""
@@ -213,10 +232,8 @@ def main():
         core_start_str = f"{core_start.hour}:{core_start.minute:02d}"
         core_end_str = f"{core_end.hour}:{core_end.minute:02d}"
 
-    st.markdown("---")
-    
-    st.header("5. 研究室の関連URLの登録（任意）")
-    st.write("B3向けに案内したい研究室の公式HPや，関連するURLを入力してください．")
+    st.markdown('<div class="section-header">5. 研究室の関連URLの登録（任意）</div>', unsafe_allow_html=True)
+    st.write("B3向けに案内したい研究室の公式HPや，創域ジャーナルなどの関連URLを入力してください．")
     official_url = st.text_input("■ 公式HPのURL（任意）")
     related_url_1 = st.text_input("■ 関連URL 1（任意）")
     related_url_2 = st.text_input("■ 関連URL 2（任意）")
