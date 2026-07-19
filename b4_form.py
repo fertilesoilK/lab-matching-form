@@ -141,7 +141,7 @@ def main():
     st.markdown("### ■ 主要キーワードから選ぶ")
     for category, groups in categorized_keywords.items():
         if groups["主要"]:
-            st.write(f"▼ 【{category}】")
+            st.markdown(f'<div style="font-size: 1.15em; font-weight: bold; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(128, 128, 128, 0.3);">▼ 【{category}】</div>', unsafe_allow_html=True)
             cols = st.columns(3)
             for i, kw in enumerate(groups["主要"]):
                 if cols[i % 3].checkbox(kw, key=f"main_{category}_{kw}"):
@@ -151,7 +151,7 @@ def main():
     st.markdown("### ■ 専門・詳細キーワードから選ぶ")
     for category, groups in categorized_keywords.items():
         if groups["専門・詳細"]:
-            st.write(f"▼ 【{category}】")
+            st.markdown(f'<div style="font-size: 1.15em; font-weight: bold; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(128, 128, 128, 0.3);">▼ 【{category}】</div>', unsafe_allow_html=True)
             cols = st.columns(3)
             for i, kw in enumerate(groups["専門・詳細"]):
                 if cols[i % 3].checkbox(kw, key=f"adv_{category}_{kw}"):
