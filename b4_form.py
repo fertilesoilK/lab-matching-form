@@ -38,7 +38,7 @@ def save_data(data_dict):
         data_dict.get("eval_2", ""),
         data_dict.get("eval_3", ""),
         data_dict.get("eval_4", ""),
-        "", 
+        data_dict.get("eval_5", ""),
         data_dict.get("eval_6", "")
     ]
     sheet.append_row(row_values)
@@ -185,6 +185,7 @@ def main():
     q2 = st.radio("■ スケジュール・拘束度 (1: 自主性重視 ⇔ 5: 進捗管理あり)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
     q3 = st.radio("■ サポート体制 (1: 教授指導 ⇔ 5: 学生間サポート)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
     q4 = st.radio("■ 研究アプローチ (1: 理学(原理解明) ⇔ 5: 工学(社会実装))", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
+    q5 = st.radio("■ 研究室の雰囲気 (1: にぎやか ⇔ 5: 落ち着いた)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
     q6 = st.radio("■ 研究の進め方 (1: 個人作業中心 ⇔ 5: チーム作業中心)", options=[1, 2, 3, 4, 5], index=2, horizontal=True)
 
     st.markdown("---")
@@ -216,6 +217,7 @@ def main():
                 "eval_2": str(q2),
                 "eval_3": str(q3),
                 "eval_4": str(q4),
+                "eval_5": str(q5),
                 "eval_6": str(q6)
             }
             save_data(data_to_save)
