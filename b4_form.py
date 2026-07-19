@@ -226,7 +226,7 @@ def main():
 
     st.markdown("---")
     st.header("5. 研究室の関連URLの登録（任意）")
-    st.write("B3向けに案内したい研究室の公式HPや，創域ジャーナルなどの関連URLを入力してください．")
+    st.write("B3向けに案内したい研究室の公式HPや，関連URLを入力してください．")
     official_url = st.text_input("■ 公式HPのURL（任意）")
     related_url_1 = st.text_input("■ 関連URL 1（任意）")
     related_url_2 = st.text_input("■ 関連URL 2（任意）")
