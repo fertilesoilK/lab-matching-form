@@ -209,9 +209,9 @@ def main():
         with col2:
             core_end = st.time_input("終了時刻", value=datetime.time(17, 0))
         
-        # 時刻を文字列(HH:MM)に変換
-        core_start_str = core_start.strftime("%H:%M")
-        core_end_str = core_end.strftime("%H:%M")
+        # 時刻を文字列に変換（0埋めをなくして "9:00" のように表示）
+        core_start_str = f"{core_start.hour}:{core_start.minute:02d}"
+        core_end_str = f"{core_end.hour}:{core_end.minute:02d}"
 
     st.markdown("---")
     

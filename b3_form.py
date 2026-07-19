@@ -125,16 +125,7 @@ def display_lab_details(row):
     with st.expander(f"【{lab_name}】 Score: {row['Match_Score']} 👈 タップして詳細を見る"):
         fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
         
-        # コアタイムの表示処理
-        core_time = row.get("core_time", "")
-        core_str = "未設定"
-        if core_time == "あり":
-            core_str = f"あり（{row.get('core_start', '')} 〜 {row.get('core_end', '')}）"
-        elif core_time == "なし":
-            core_str = "なし"
-            
         st.write(f"【分野】 {fields_str}")
-        st.write(f"【コアタイム】 {core_str}")
         
         kw_data = row['キーワードデータ']
         if isinstance(kw_data, list):
@@ -184,7 +175,16 @@ def display_lab_details(row):
             )
             st.markdown(eval_html, unsafe_allow_html=True)
 
-            st.write("")
+        # 5段階評価のすぐ下にコアタイムを表示
+        core_time = row.get("core_time", "")
+        core_str = "未設定"
+        if core_time == "あり":
+            core_str = f"あり（{row.get('core_start', '')} 〜 {row.get('core_end', '')}）"
+        elif core_time == "なし":
+            core_str = "なし"
+            
+        st.write(f"【コアタイム】 {core_str}")
+        st.write("")
                 
         lab_urls_dict = LAB_URLS.get(lab_name, {}).copy()
         
