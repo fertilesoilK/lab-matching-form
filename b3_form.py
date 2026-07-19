@@ -93,14 +93,15 @@ def load_spreadsheet_data():
             
         padded_records = []
         for r in records:
-            while len(r) < 13:
+            while len(r) < 16:
                 r.append("")
-            padded_records.append(r[:13])
+            padded_records.append(r[:16])
             
         df = pd.DataFrame(padded_records, columns=[
             "Lab_ID", "研究室名", "分野", "キーワードデータ", 
             "公式HP", "関連URL1", "関連URL2", 
-            "eval_1", "eval_2", "eval_3", "eval_4", "eval_5", "eval_6"
+            "eval_1", "eval_2", "eval_3", "eval_4", "eval_5", "eval_6",
+            "core_time", "core_start", "core_end"
         ])
         
         def safe_eval(val):
@@ -123,7 +124,17 @@ def display_lab_details(row):
     lab_name = row['研究室名']
     with st.expander(f"【{lab_name}】 Score: {row['Match_Score']} 👈 タップして詳細を見る"):
         fields_str = "，".join(row['分野']) if isinstance(row['分野'], list) else row.get('分野', '未設定')
+        
+        # コアタイムの表示処理
+        core_time = row.get("core_time", "")
+        core_str = "未設定"
+        if core_time == "あり":
+            core_str = f"あり（{row.get('core_start', '')} 〜 {row.get('core_end', '')}）"
+        elif core_time == "なし":
+            core_str = "なし"
+            
         st.write(f"【分野】 {fields_str}")
+        st.write(f"【コアタイム】 {core_str}")
         
         kw_data = row['キーワードデータ']
         if isinstance(kw_data, list):
