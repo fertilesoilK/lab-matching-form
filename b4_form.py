@@ -2,6 +2,7 @@ import streamlit as st
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
+import datetime
 
 ROMAJI_DICT = {
     "上野研究室": "ueno", "塚原研究室": "tsukahara", "青野研究室": "aono",
@@ -26,6 +27,8 @@ def save_data(data_dict):
     client = gspread.authorize(creds)
     
     sheet = client.open_by_key(sheet_id).sheet1
+    
+    # 既存の13項目に加え、コアタイム関連の3項目を末尾に追加
     row_values = [
         data_dict["Lab_ID"],
         data_dict["研究室名"],
@@ -39,7 +42,10 @@ def save_data(data_dict):
         data_dict.get("eval_3", ""),
         data_dict.get("eval_4", ""),
         data_dict.get("eval_5", ""),
-        data_dict.get("eval_6", "")
+        data_dict.get("eval_6", ""),
+        data_dict.get("core_time", ""),
+        data_dict.get("core_start", ""),
+        data_dict.get("core_end", "")
     ]
     sheet.append_row(row_values)
 
@@ -190,7 +196,26 @@ def main():
 
     st.markdown("---")
     
-    st.header("4. 研究室の関連URLの登録（任意）")
+    st.header("4. コアタイムについて")
+    has_core_time = st.radio("■ コアタイムはありますか？", ["なし", "あり"], horizontal=True)
+    
+    core_start_str = ""
+    core_end_str = ""
+    
+    if has_core_time == "あり":
+        col1, col2 = st.columns(2)
+        with col1:
+            core_start = st.time_input("開始時刻", value=datetime.time(9, 0))
+        with col2:
+            core_end = st.time_input("終了時刻", value=datetime.time(17, 0))
+        
+        # 時刻を文字列(HH:MM)に変換
+        core_start_str = core_start.strftime("%H:%M")
+        core_end_str = core_end.strftime("%H:%M")
+
+    st.markdown("---")
+    
+    st.header("5. 研究室の関連URLの登録（任意）")
     st.write("B3向けに案内したい研究室の公式HPや，関連するURLを入力してください．")
     official_url = st.text_input("■ 公式HPのURL（任意）")
     related_url_1 = st.text_input("■ 関連URL 1（任意）")
@@ -218,7 +243,10 @@ def main():
                 "eval_3": str(q3),
                 "eval_4": str(q4),
                 "eval_5": str(q5),
-                "eval_6": str(q6)
+                "eval_6": str(q6),
+                "core_time": has_core_time,
+                "core_start": core_start_str,
+                "core_end": core_end_str
             }
             save_data(data_to_save)
             st.success(f"「{lab_name}」のデータを登録しました！")
